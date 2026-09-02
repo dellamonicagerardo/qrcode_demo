@@ -9,6 +9,7 @@
   let prefs = loadPrefs();
 
   const views = {
+    picker: document.getElementById("view-picker"),
     lang: document.getElementById("view-lang"),
     menu: document.getElementById("view-menu"),
     category: document.getElementById("view-category"),
@@ -16,6 +17,11 @@
   };
 
   const els = {
+    siteHeader: document.querySelector(".site-header"),
+    siteFooter: document.querySelector(".site-footer"),
+    pickerTitle: document.getElementById("picker-title"),
+    pickerError: document.getElementById("picker-error"),
+    menuPickerGrid: document.getElementById("menu-picker-grid"),
     toolbar: document.getElementById("access-toolbar"),
     homeFab: document.getElementById("home-fab"),
     langTitle: document.getElementById("lang-title"),
@@ -74,7 +80,7 @@
   function showView(name) {
     Object.values(views).forEach((v) => v && v.classList.remove("active"));
     if (views[name]) views[name].classList.add("active");
-    const showChrome = name !== "lang" && lang;
+    const showChrome = name !== "lang" && name !== "picker" && lang;
     els.toolbar.classList.toggle("hidden", !showChrome);
     els.homeFab.classList.toggle("hidden", !showChrome);
     els.breadcrumb.classList.toggle("hidden", !showChrome);
@@ -169,6 +175,33 @@
     showView(currentCategory ? "category" : (searchQuery.trim() ? "search" : "menu"));
   }
 
+  function renderMenuPicker() {
+    document.title = t("chooseMenu");
+    els.siteHeader?.classList.add("hidden");
+    els.siteFooter?.classList.add("hidden");
+    els.pickerTitle.textContent = t("chooseMenu");
+
+    const invalidId = MENU_REQUESTED_ID && !ACTIVE_MENU_ID;
+    if (invalidId) {
+      els.pickerError.textContent = `${t("menuNotFound")}: ${MENU_REQUESTED_ID}`;
+      els.pickerError.classList.remove("hidden");
+    } else {
+      els.pickerError.classList.add("hidden");
+      els.pickerError.textContent = "";
+    }
+
+    const menus = getAvailableMenus();
+    els.menuPickerGrid.innerHTML = menus.length
+      ? menus.map((menu) => `
+          <a class="lang-card" href="?menu=${encodeURIComponent(menu.id)}">
+            <span class="lang-label">${menu.name}</span>
+          </a>
+        `).join("")
+      : `<p class="picker-empty">${lang === "en" ? "No menus available." : "Nessun menu disponibile."}</p>`;
+
+    showView("picker");
+  }
+
   function updateTexts() {
     if (!lang) return;
     els.langTitle.textContent = t("chooseLang");
@@ -177,7 +210,7 @@
     els.privacyBtn.textContent = t("privacy");
     if (els.reviewBtn) els.reviewBtn.textContent = t("review");
     const phoneBtn = document.querySelector(".phone-btn span");
-    if (phoneBtn) phoneBtn.textContent = `${t("callUs")} 0899762636`;
+    if (phoneBtn && SITE.phone) phoneBtn.textContent = `${t("callUs")} ${SITE.phone}`;
     if (els.backLabel) els.backLabel.textContent = t("back");
     if (els.searchInput) els.searchInput.placeholder = t("search");
     if (els.searchTitle) els.searchTitle.textContent = t("searchResults");
@@ -683,9 +716,13 @@
     localStorage.setItem(LANG_KEY, lang);
   }
 
-  updateTexts();
-  renderLangSwitcher();
-  renderAllergenFilter();
-  renderCategories();
-  showView("menu");
+  if (ACTIVE_MENU_ID) {
+    updateTexts();
+    renderLangSwitcher();
+    renderAllergenFilter();
+    renderCategories();
+    showView("menu");
+  } else {
+    renderMenuPicker();
+  }
 })();

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>White Gold Menu</title>
-  <meta name="description" content="Menu digitale - Pizzeria White Gold, Baronissi (SA)">
+  <title>Menu digitale</title>
+  <meta name="description" content="Menu digitale per ristoranti e pizzerie">
   <meta name="theme-color" content="#1a1612">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,6 +50,12 @@
     <main>
       <nav id="breadcrumb" class="breadcrumb hidden" aria-label="Percorso"></nav>
       <div id="active-allergen-bar" class="active-allergen-bar hidden" aria-live="polite"></div>
+      <section id="view-picker" class="view">
+        <h1 id="picker-title" class="page-title">Scegli un menu</h1>
+        <p id="picker-error" class="picker-error hidden"></p>
+        <div id="menu-picker-grid" class="lang-grid"></div>
+      </section>
+
       <section id="view-lang" class="view">
         <h1 id="lang-title" class="page-title">Scegli la tua lingua</h1>
         <div class="lang-grid">
@@ -68,7 +74,7 @@
         </div>
       </section>
 
-      <section id="view-menu" class="view active">
+      <section id="view-menu" class="view">
         <div id="lang-switcher" class="lang-switcher"></div>
         <div class="carousel-wrap">
           <div id="category-carousel" class="carousel-viewport">
@@ -188,9 +194,9 @@
     </div>
   </div>
 
-  <script src="js/data.js"></script>
-  <script src="js/icons.js"></script>
-  <script src="js/carousel.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/menu-core.js"></script>
+  <script src="js/menus/manifest.js"></script>
+  <script src="js/menu-loader.js"></script>
 </body>
 </html>

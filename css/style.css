@@ -120,7 +120,10 @@ img {
 
 .access-toolbar.hidden,
 .breadcrumb.hidden,
-.home-fab.hidden {
+.home-fab.hidden,
+.site-header.hidden,
+.site-footer.hidden,
+.picker-error.hidden {
   display: none !important;
 }
 
@@ -702,6 +705,18 @@ main {
   margin: 0 0 2rem;
 }
 
+.picker-error {
+  text-align: center;
+  color: #f5a5a5;
+  margin: -1rem 0 1.5rem;
+}
+
+.picker-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+}
+
 /* Language picker */
 .lang-grid {
   display: grid;
@@ -721,6 +736,7 @@ main {
   border: none;
   background: transparent;
   color: var(--text);
+  text-decoration: none;
   transition: transform 0.1s ease, opacity 0.1s ease;
 }
 
@@ -814,13 +830,15 @@ html.text-large .lang-label {
   top: 0;
   left: 0;
   right: 0;
-  padding: 12px 16px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent);
+  padding: 14px 16px 28px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
   display: flex;
   align-items: center;
   gap: 4px;
   font-size: 0.8rem;
   font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
 
 .card-top-badge span {
@@ -833,12 +851,13 @@ html.text-large .lang-label {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 20%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  min-height: 28%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding: 16px 12px 20px;
+  color: #fff;
 }
 
 .card-bottom-label span {
@@ -847,6 +866,8 @@ html.text-large .lang-label {
   text-transform: uppercase;
   text-align: center;
   line-height: 1.2;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
 }
 
 .carousel-dots {
@@ -1067,11 +1088,13 @@ html.text-large .category-list-name {
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 12px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, transparent 55%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.35) 50%, transparent 100%);
   border-radius: 30px;
   font-size: 0.75rem;
   font-weight: 600;
   gap: 4px;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
 .product-thumb-cta span {
@@ -1444,6 +1467,11 @@ html.text-large .product-card .product-price {
 
 .social-links a:hover {
   opacity: 1;
+}
+
+.social-links a.hidden,
+.review-btn.hidden {
+  display: none;
 }
 
 .social-links svg {
