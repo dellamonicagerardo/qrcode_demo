@@ -58,6 +58,19 @@
     return (I18N[lang] || I18N.it)[key];
   }
 
+  function scrollToMainContent() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const target = els.breadcrumb && !els.breadcrumb.classList.contains("hidden")
+          ? els.breadcrumb
+          : document.querySelector("main");
+        if (!target) return;
+        const top = target.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+      });
+    });
+  }
+
   function showView(name) {
     Object.values(views).forEach((v) => v && v.classList.remove("active"));
     if (views[name]) views[name].classList.add("active");
@@ -67,7 +80,11 @@
     els.breadcrumb.classList.toggle("hidden", !showChrome);
     updateBreadcrumb(name);
     renderActiveAllergenBar(name);
-    window.scrollTo(0, 0);
+    if (name === "lang") {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    } else {
+      scrollToMainContent();
+    }
   }
 
   function updateBreadcrumb(viewName) {
