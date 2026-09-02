@@ -1,6 +1,6 @@
 (function () {
   const LANG_KEY = "menu-lang";
-  let lang = localStorage.getItem(LANG_KEY) || null;
+  let lang = localStorage.getItem(LANG_KEY) || "it";
   let currentCategory = null;
   let excludedAllergens = [];
   let pendingExcludedAllergens = [];
@@ -589,8 +589,7 @@
     currentCategory = null;
     searchQuery = "";
     els.searchInput.value = "";
-    if (lang) showView("menu");
-    else showView("lang");
+    showView("menu");
   }
 
   document.querySelectorAll(".lang-card").forEach((btn) => {
@@ -663,17 +662,13 @@
   applyPreferences();
   excludedAllergens = Array.isArray(prefs.excludedAllergens) ? [...prefs.excludedAllergens] : [];
 
-  if (lang) {
-    updateTexts();
-    renderLangSwitcher();
-    renderAllergenFilter();
-    renderCategories();
-    showView("menu");
-  } else {
-    document.documentElement.lang = "it";
-    els.langTitle.textContent = I18N.it.chooseLang;
-    els.disclaimer.textContent = I18N.it.disclaimer;
-    els.toolbar.classList.add("hidden");
-    showView("lang");
+  if (!localStorage.getItem(LANG_KEY)) {
+    localStorage.setItem(LANG_KEY, lang);
   }
+
+  updateTexts();
+  renderLangSwitcher();
+  renderAllergenFilter();
+  renderCategories();
+  showView("menu");
 })();
