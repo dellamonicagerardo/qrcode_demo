@@ -1350,11 +1350,11 @@ html.text-large .product-card .product-price {
   scroll-snap-type: none;
 }
 
-.gallery-viewport.is-dragging {
+.gallery-viewport.is-dragging,
+.gallery-viewport.is-touching {
   cursor: grabbing;
   scroll-snap-type: none;
   user-select: none;
-  touch-action: none;
 }
 
 .gallery-viewport::-webkit-scrollbar {

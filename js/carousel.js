@@ -200,50 +200,94 @@ function galleryUseSmooth() {
   return window.matchMedia("(pointer: fine)").matches;
 }
 
-function bindGalleryTouch(viewport, getIndex, goTo) {
+function clampGalleryScroll(viewport, slides, startIndex, startScrollLeft, dx) {
+  const minIdx = Math.max(startIndex - 1, 0);
+  const maxIdx = Math.min(startIndex + 1, slides.length - 1);
+  const minScroll = slides[minIdx].offsetLeft;
+  const maxScroll = slides[maxIdx].offsetLeft;
+  viewport.scrollLeft = Math.min(maxScroll, Math.max(minScroll, startScrollLeft - dx));
+}
+
+function lockGalleryScroll(viewport, targetLeft) {
+  viewport.scrollLeft = targetLeft;
+  let frames = 0;
+  const lock = () => {
+    viewport.scrollLeft = targetLeft;
+    if (++frames < 5) requestAnimationFrame(lock);
+  };
+  requestAnimationFrame(lock);
+}
+
+function bindGalleryTouch(viewport, slides, getIndex, goTo) {
   let startX = 0;
+  let startY = 0;
   let startScrollLeft = 0;
   let startIndex = 0;
   let tracking = false;
+  let axisLock = null;
 
   const onTouchStart = (e) => {
     if (e.touches.length !== 1) return;
     stopGalleryAnimation(viewport);
     tracking = true;
+    axisLock = null;
     startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
     startScrollLeft = viewport.scrollLeft;
     startIndex = getIndex();
+    viewport.classList.add("is-touching");
   };
 
-  const onTouchEnd = (e) => {
-    if (!tracking) return;
-    tracking = false;
+  const onTouchMove = (e) => {
+    if (!tracking || e.touches.length !== 1) return;
 
-    const touch = e.changedTouches[0];
-    if (!touch) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
 
-    const dx = touch.clientX - startX;
-    const scrollDelta = viewport.scrollLeft - startScrollLeft;
-    const width = viewport.clientWidth;
-    const threshold = Math.min(width * 0.12, 56);
+    if (!axisLock && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      axisLock = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+    }
 
-    if (dx > threshold || scrollDelta < -threshold) {
-      goTo(startIndex - 1, false);
-    } else if (dx < -threshold || scrollDelta > threshold) {
-      goTo(startIndex + 1, false);
-    } else {
-      goTo(startIndex, false);
+    if (axisLock === "x") {
+      clampGalleryScroll(viewport, slides, startIndex, startScrollLeft, dx);
+      e.preventDefault();
     }
   };
 
+  const finishTouch = (touch) => {
+    if (!tracking) return;
+    tracking = false;
+    viewport.classList.remove("is-touching");
+
+    if (!touch) return;
+
+    const dx = touch.clientX - startX;
+    const threshold = Math.min(viewport.clientWidth * 0.12, 56);
+    let targetIndex = startIndex;
+
+    if (dx < -threshold) {
+      targetIndex = startIndex + 1;
+    } else if (dx > threshold) {
+      targetIndex = startIndex - 1;
+    }
+
+    goTo(targetIndex, false);
+    axisLock = null;
+  };
+
+  const onTouchEnd = (e) => finishTouch(e.changedTouches[0]);
+
   viewport.addEventListener("touchstart", onTouchStart, { passive: true });
+  viewport.addEventListener("touchmove", onTouchMove, { passive: false });
   viewport.addEventListener("touchend", onTouchEnd, { passive: true });
   viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
 
   return () => {
     viewport.removeEventListener("touchstart", onTouchStart);
+    viewport.removeEventListener("touchmove", onTouchMove);
     viewport.removeEventListener("touchend", onTouchEnd);
     viewport.removeEventListener("touchcancel", onTouchEnd);
+    viewport.classList.remove("is-touching");
   };
 }
 
@@ -312,11 +356,7 @@ function bindGalleryMouseDrag(viewport, slides, getIndex, goTo) {
     }
 
     if (mouseDragging) {
-      const minIdx = Math.max(startIndex - 1, 0);
-      const maxIdx = Math.min(startIndex + 1, slides.length - 1);
-      const minScroll = slides[minIdx].offsetLeft;
-      const maxScroll = slides[maxIdx].offsetLeft;
-      viewport.scrollLeft = Math.min(maxScroll, Math.max(minScroll, startScrollLeft - dx));
+      clampGalleryScroll(viewport, slides, startIndex, startScrollLeft, dx);
       e.preventDefault();
     }
   };
@@ -396,14 +436,14 @@ function initModalGallery(modal) {
     syncUi();
     if (Math.abs(viewport.scrollLeft - target) < 2) {
       stopGalleryAnimation(viewport);
-      viewport.scrollLeft = target;
+      lockGalleryScroll(viewport, target);
       return;
     }
     if (smooth) {
       animateGalleryScroll(viewport, target);
     } else {
       stopGalleryAnimation(viewport);
-      viewport.scrollLeft = target;
+      lockGalleryScroll(viewport, target);
     }
   }
 
@@ -418,7 +458,11 @@ function initModalGallery(modal) {
   let scrollRaf = 0;
 
   const onScroll = () => {
-    if (viewport.classList.contains("is-dragging") || viewport.classList.contains("is-animating")) return;
+    if (
+      viewport.classList.contains("is-dragging")
+      || viewport.classList.contains("is-animating")
+      || viewport.classList.contains("is-touching")
+    ) return;
     cancelAnimationFrame(scrollRaf);
     scrollRaf = requestAnimationFrame(() => {
       index = getNearestGalleryIndex(viewport, slides);
@@ -428,7 +472,7 @@ function initModalGallery(modal) {
 
   viewport.addEventListener("scroll", onScroll, { passive: true });
 
-  const unbindTouch = bindGalleryTouch(viewport, () => index, goTo);
+  const unbindTouch = bindGalleryTouch(viewport, slides, () => index, goTo);
   const unbindMouseDrag = bindGalleryMouseDrag(viewport, slides, () => index, goTo);
 
   const onKey = (e) => {
