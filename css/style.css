@@ -1343,6 +1343,7 @@ html.text-large .product-card .product-price {
   touch-action: pan-x;
   overscroll-behavior-x: contain;
   cursor: grab;
+  background: var(--card-bg);
 }
 
 .gallery-viewport.is-animating {
@@ -1366,6 +1367,7 @@ html.text-large .product-card .product-price {
   min-width: 100%;
   scroll-snap-align: center;
   scroll-snap-stop: always;
+  background: var(--card-bg);
 }
 
 .gallery-slide img {
@@ -1375,6 +1377,8 @@ html.text-large .product-card .product-price {
   pointer-events: none;
   -webkit-user-drag: none;
   user-select: none;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .gallery-dots {
@@ -1427,6 +1431,7 @@ html.text-large .product-card .product-price {
 
 .gallery-wrap {
   position: relative;
+  background: var(--card-bg);
 }
 
 .gallery-wrap:not(.gallery-multi) .gallery-nav,

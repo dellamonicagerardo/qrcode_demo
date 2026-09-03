@@ -196,6 +196,10 @@ function getNearestGalleryIndex(viewport, slides) {
   return nearest;
 }
 
+function galleryUseSmooth() {
+  return window.matchMedia("(pointer: fine)").matches;
+}
+
 function bindGalleryTouch(viewport, getIndex, goTo) {
   let startX = 0;
   let startScrollLeft = 0;
@@ -224,11 +228,11 @@ function bindGalleryTouch(viewport, getIndex, goTo) {
     const threshold = Math.min(width * 0.12, 56);
 
     if (dx > threshold || scrollDelta < -threshold) {
-      goTo(startIndex - 1, true);
+      goTo(startIndex - 1, false);
     } else if (dx < -threshold || scrollDelta > threshold) {
-      goTo(startIndex + 1, true);
+      goTo(startIndex + 1, false);
     } else {
-      goTo(startIndex, true);
+      goTo(startIndex, false);
     }
   };
 
@@ -386,10 +390,15 @@ function initModalGallery(modal) {
     updateCounter();
   }
 
-  function goTo(i, smooth = true) {
+  function goTo(i, smooth = galleryUseSmooth()) {
     index = (i + slides.length) % slides.length;
     const target = slides[index].offsetLeft;
     syncUi();
+    if (Math.abs(viewport.scrollLeft - target) < 2) {
+      stopGalleryAnimation(viewport);
+      viewport.scrollLeft = target;
+      return;
+    }
     if (smooth) {
       animateGalleryScroll(viewport, target);
     } else {
@@ -398,9 +407,9 @@ function initModalGallery(modal) {
     }
   }
 
-  const onPrev = () => goTo(index - 1);
-  const onNext = () => goTo(index + 1);
-  const dotHandlers = dots.map((_, i) => () => goTo(i));
+  const onPrev = () => goTo(index - 1, galleryUseSmooth());
+  const onNext = () => goTo(index + 1, galleryUseSmooth());
+  const dotHandlers = dots.map((_, i) => () => goTo(i, galleryUseSmooth()));
 
   dotHandlers.forEach((handler, i) => dots[i]?.addEventListener("click", handler));
   prevBtn?.addEventListener("click", onPrev);
