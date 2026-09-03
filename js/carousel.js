@@ -176,7 +176,10 @@ function animateGalleryScroll(viewport, targetLeft, duration = GALLERY_ANIM_MS) 
 function getNearestGalleryIndex(viewport, slides) {
   const width = viewport.clientWidth || 1;
   if (width > 0 && slides.length > 1) {
-    return Math.min(slides.length - 1, Math.max(0, Math.round(viewport.scrollLeft / width)));
+    return Math.min(
+      slides.length - 1,
+      Math.max(0, Math.floor((viewport.scrollLeft + width * 0.25) / width))
+    );
   }
 
   const center = viewport.scrollLeft + viewport.clientWidth / 2;
@@ -191,6 +194,53 @@ function getNearestGalleryIndex(viewport, slides) {
     }
   });
   return nearest;
+}
+
+function bindGalleryTouch(viewport, getIndex, goTo) {
+  let startX = 0;
+  let startScrollLeft = 0;
+  let startIndex = 0;
+  let tracking = false;
+
+  const onTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    stopGalleryAnimation(viewport);
+    tracking = true;
+    startX = e.touches[0].clientX;
+    startScrollLeft = viewport.scrollLeft;
+    startIndex = getIndex();
+  };
+
+  const onTouchEnd = (e) => {
+    if (!tracking) return;
+    tracking = false;
+
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+
+    const dx = touch.clientX - startX;
+    const scrollDelta = viewport.scrollLeft - startScrollLeft;
+    const width = viewport.clientWidth;
+    const threshold = Math.min(width * 0.12, 56);
+
+    if (dx > threshold || scrollDelta < -threshold) {
+      goTo(startIndex - 1, true);
+    } else if (dx < -threshold || scrollDelta > threshold) {
+      goTo(startIndex + 1, true);
+    } else {
+      goTo(startIndex, true);
+    }
+  };
+
+  viewport.addEventListener("touchstart", onTouchStart, { passive: true });
+  viewport.addEventListener("touchend", onTouchEnd, { passive: true });
+  viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+  return () => {
+    viewport.removeEventListener("touchstart", onTouchStart);
+    viewport.removeEventListener("touchend", onTouchEnd);
+    viewport.removeEventListener("touchcancel", onTouchEnd);
+  };
 }
 
 function bindGalleryMouseDrag(viewport, slides, getIndex, goTo) {
@@ -348,18 +398,6 @@ function initModalGallery(modal) {
     }
   }
 
-  function snapToNearest(smooth = true) {
-    if (viewport.classList.contains("is-animating")) return;
-    const nearest = getNearestGalleryIndex(viewport, slides);
-    const targetLeft = slides[nearest].offsetLeft;
-    if (Math.abs(viewport.scrollLeft - targetLeft) > 2) {
-      goTo(nearest, smooth);
-    } else {
-      index = nearest;
-      syncUi();
-    }
-  }
-
   const onPrev = () => goTo(index - 1);
   const onNext = () => goTo(index + 1);
   const dotHandlers = dots.map((_, i) => () => goTo(i));
@@ -369,10 +407,9 @@ function initModalGallery(modal) {
   nextBtn?.addEventListener("click", onNext);
 
   let scrollRaf = 0;
-  let touchSnapTimeout;
 
   const onScroll = () => {
-    if (viewport.classList.contains("is-dragging")) return;
+    if (viewport.classList.contains("is-dragging") || viewport.classList.contains("is-animating")) return;
     cancelAnimationFrame(scrollRaf);
     scrollRaf = requestAnimationFrame(() => {
       index = getNearestGalleryIndex(viewport, slides);
@@ -382,23 +419,7 @@ function initModalGallery(modal) {
 
   viewport.addEventListener("scroll", onScroll, { passive: true });
 
-  const onScrollEnd = () => {
-    if (viewport.classList.contains("is-dragging") || viewport.classList.contains("is-animating")) return;
-    snapToNearest(true);
-  };
-
-  if ("onscrollend" in viewport) {
-    viewport.addEventListener("scrollend", onScrollEnd);
-  }
-
-  const onTouchEnd = () => {
-    clearTimeout(touchSnapTimeout);
-    touchSnapTimeout = setTimeout(() => snapToNearest(true), 80);
-  };
-
-  viewport.addEventListener("touchend", onTouchEnd, { passive: true });
-  viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
-
+  const unbindTouch = bindGalleryTouch(viewport, () => index, goTo);
   const unbindMouseDrag = bindGalleryMouseDrag(viewport, slides, () => index, goTo);
 
   const onKey = (e) => {
@@ -419,14 +440,9 @@ function initModalGallery(modal) {
 
   modal._galleryDestroy = () => {
     cancelAnimationFrame(scrollRaf);
-    clearTimeout(touchSnapTimeout);
     stopGalleryAnimation(viewport);
     viewport.removeEventListener("scroll", onScroll);
-    if ("onscrollend" in viewport) {
-      viewport.removeEventListener("scrollend", onScrollEnd);
-    }
-    viewport.removeEventListener("touchend", onTouchEnd);
-    viewport.removeEventListener("touchcancel", onTouchEnd);
+    unbindTouch();
     unbindMouseDrag();
     dotHandlers.forEach((handler, i) => dots[i]?.removeEventListener("click", handler));
     prevBtn?.removeEventListener("click", onPrev);
