@@ -23,7 +23,11 @@ const MENU_WHITE_GOLD = {
     image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&h=889&fit=crop",
     name: { it: "Pizze", en: "Pizzas" },
     products: [
-      { name: { it: "Margherita", en: "Margherita" }, price: "5,00", desc: { it: "Pomodoro, mozzarella, basilico", en: "Tomato, mozzarella, basil" } },
+      { name: { it: "Margherita", en: "Margherita" }, price: "5,00", desc: { it: "Pomodoro, mozzarella, basilico", en: "Tomato, mozzarella, basil" }, images: [
+        "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&h=889&fit=crop",
+        "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500&h=889&fit=crop",
+        "https://images.unsplash.com/photo-1595854341625-f33ee5427437?w=500&h=889&fit=crop"
+      ]},
       { name: { it: "Capricciosa", en: "Capricciosa" }, price: "9,00", desc: { it: "Pomodoro, mozzarella, prosciutto cotto, funghi, carciofi, olive", en: "Tomato, mozzarella, ham, mushrooms, artichokes, olives" } },
       { name: { it: "Decisa", en: "Decisa" }, price: "12,00", desc: { it: "Pomodoro, mozzarella, salame piccante, olive", en: "Tomato, mozzarella, spicy salami, olives" } },
       { name: { it: "Bufalina", en: "Bufalina" }, price: "7,00", desc: { it: "Pomodoro, mozzarella di bufala, basilico", en: "Tomato, buffalo mozzarella, basil" } },

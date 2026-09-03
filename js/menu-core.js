@@ -95,12 +95,17 @@ function enrichProducts(menu) {
   menu.categories.forEach((cat) => {
     const isPizza = pizzaIds.has(cat.id);
     cat.products.forEach((product) => {
+      if (Array.isArray(product.images) && product.images.length) {
+        if (!product.image) product.image = product.images[0];
+      }
       if (!product.image) {
         product.image = isPizza
           ? pizzaImages[pizzaIdx++ % pizzaImages.length]
           : portrait(cat.image);
       }
-      product.images = product.images || [product.image];
+      product.images = Array.isArray(product.images) && product.images.length
+        ? product.images
+        : [product.image];
       product.ingredients = product.ingredients || {
         it: parseIngredients(product.desc.it),
         en: parseIngredients(product.desc.en)

@@ -41,6 +41,7 @@ const I18N = {
     pregnancyNote: "Indicazioni indicative: in gravidanza alcuni alimenti vanno limitati o evitati. Chiedi sempre al personale prima di ordinare.",
     prevPhoto: "Foto precedente",
     nextPhoto: "Foto successiva",
+    photo: "Foto",
     close: "Chiudi"
   },
   en: {
@@ -85,6 +86,7 @@ const I18N = {
     pregnancyNote: "These are general guidelines: some foods should be limited or avoided during pregnancy. Always ask staff before ordering.",
     prevPhoto: "Previous photo",
     nextPhoto: "Next photo",
+    photo: "Photo",
     close: "Close"
   }
 };

@@ -24,7 +24,10 @@ const MENU_FORNO_NAPOLI = {
       name: { it: "Pizze", en: "Pizzas" },
       products: [
         { name: { it: "Marinara", en: "Marinara" }, price: "4,50", desc: { it: "Pomodoro, aglio, origano", en: "Tomato, garlic, oregano" } },
-        { name: { it: "Margherita", en: "Margherita" }, price: "6,00", desc: { it: "Pomodoro, mozzarella, basilico", en: "Tomato, mozzarella, basil" } },
+        { name: { it: "Margherita", en: "Margherita" }, price: "6,00", desc: { it: "Pomodoro, mozzarella, basilico", en: "Tomato, mozzarella, basil" }, images: [
+          "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&h=889&fit=crop",
+          "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500&h=889&fit=crop"
+        ]},
         { name: { it: "Diavola", en: "Diavola" }, price: "8,00", desc: { it: "Pomodoro, mozzarella, salame piccante", en: "Tomato, mozzarella, spicy salami" } }
       ]
     },

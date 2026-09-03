@@ -123,43 +123,237 @@ function initCarousel(viewport) {
   }};
 }
 
+function destroyModalGallery(modal) {
+  if (modal?._galleryDestroy) {
+    modal._galleryDestroy();
+    modal._galleryDestroy = null;
+  }
+}
+
+function getNearestGalleryIndex(viewport, slides) {
+  const center = viewport.scrollLeft + viewport.clientWidth / 2;
+  let nearest = 0;
+  let minDist = Infinity;
+  slides.forEach((slide, i) => {
+    const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+    const dist = Math.abs(center - slideCenter);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = i;
+    }
+  });
+  return nearest;
+}
+
+function bindGallerySwipe(viewport, slides, getIndex, goTo) {
+  let startX = 0;
+  let startY = 0;
+  let startScrollLeft = 0;
+  let startIndex = 0;
+  let axisLock = null;
+  let pointerId = null;
+  let dragging = false;
+
+  function finishGesture(endX) {
+    if (axisLock !== "x") {
+      axisLock = null;
+      pointerId = null;
+      dragging = false;
+      viewport.classList.remove("is-dragging");
+      return;
+    }
+
+    const dx = endX - startX;
+    const width = viewport.clientWidth;
+    const scrollDelta = viewport.scrollLeft - startScrollLeft;
+    const threshold = Math.min(width * 0.18, 72);
+
+    if (dx < -threshold || scrollDelta > threshold) {
+      goTo(startIndex + 1, true);
+    } else if (dx > threshold || scrollDelta < -threshold) {
+      goTo(startIndex - 1, true);
+    } else {
+      goTo(startIndex, true);
+    }
+
+    axisLock = null;
+    pointerId = null;
+    dragging = false;
+    viewport.classList.remove("is-dragging");
+  }
+
+  const onPointerDown = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    pointerId = e.pointerId;
+    startIndex = getIndex();
+    startX = e.clientX;
+    startY = e.clientY;
+    startScrollLeft = viewport.scrollLeft;
+    axisLock = null;
+    dragging = false;
+    viewport.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e) => {
+    if (e.pointerId !== pointerId) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    if (!axisLock && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      axisLock = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+      if (axisLock === "x") {
+        dragging = true;
+        viewport.classList.add("is-dragging");
+      }
+    }
+
+    if (dragging && axisLock === "x" && e.pointerType === "mouse") {
+      const minIdx = Math.max(startIndex - 1, 0);
+      const maxIdx = Math.min(startIndex + 1, slides.length - 1);
+      const minScroll = slides[minIdx].offsetLeft;
+      const maxScroll = slides[maxIdx].offsetLeft;
+      viewport.scrollLeft = Math.min(maxScroll, Math.max(minScroll, startScrollLeft - dx));
+      e.preventDefault();
+    }
+  };
+
+  const onPointerUp = (e) => {
+    if (e.pointerId !== pointerId) return;
+    finishGesture(e.clientX);
+    if (viewport.hasPointerCapture(e.pointerId)) {
+      viewport.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const onPointerCancel = (e) => {
+    if (e.pointerId !== pointerId) return;
+    finishGesture(e.clientX);
+  };
+
+  viewport.addEventListener("pointerdown", onPointerDown);
+  viewport.addEventListener("pointermove", onPointerMove, { passive: false });
+  viewport.addEventListener("pointerup", onPointerUp);
+  viewport.addEventListener("pointercancel", onPointerCancel);
+
+  return () => {
+    viewport.removeEventListener("pointerdown", onPointerDown);
+    viewport.removeEventListener("pointermove", onPointerMove);
+    viewport.removeEventListener("pointerup", onPointerUp);
+    viewport.removeEventListener("pointercancel", onPointerCancel);
+    viewport.classList.remove("is-dragging");
+  };
+}
+
 function initModalGallery(modal) {
+  if (!modal) return;
+
+  destroyModalGallery(modal);
+
   const viewport = modal.querySelector(".gallery-viewport");
+  const wrap = modal.querySelector(".gallery-wrap");
+  const counterEl = modal.querySelector(".gallery-counter");
   if (!viewport) return;
 
   const slides = Array.from(viewport.querySelectorAll(".gallery-slide"));
   const dots = Array.from(modal.querySelectorAll(".gallery-dot"));
   const prevBtn = modal.querySelector(".gallery-prev");
   const nextBtn = modal.querySelector(".gallery-next");
-  if (slides.length < 1) return;
+  const multi = slides.length > 1;
+
+  wrap?.classList.toggle("gallery-multi", multi);
+
+  if (!multi) {
+    if (prevBtn) prevBtn.hidden = true;
+    if (nextBtn) nextBtn.hidden = true;
+    if (counterEl) counterEl.classList.add("hidden");
+    return;
+  }
+
+  if (prevBtn) prevBtn.hidden = false;
+  if (nextBtn) nextBtn.hidden = false;
+  if (counterEl) counterEl.classList.remove("hidden");
 
   let index = 0;
 
-  function goTo(i) {
-    index = (i + slides.length) % slides.length;
-    viewport.scrollTo({ left: slides[index].offsetLeft, behavior: prefersReducedMotion() ? "auto" : "smooth" });
-    dots.forEach((dot, j) => dot.classList.toggle("active", j === index));
-    if (prevBtn) prevBtn.style.visibility = slides.length > 1 ? "visible" : "hidden";
-    if (nextBtn) nextBtn.style.visibility = slides.length > 1 ? "visible" : "hidden";
+  function updateCounter() {
+    if (!counterEl) return;
+    counterEl.textContent = `${index + 1} / ${slides.length}`;
+    counterEl.setAttribute("aria-label", `${index + 1} / ${slides.length}`);
   }
 
-  dots.forEach((dot, i) => dot.addEventListener("click", () => goTo(i)));
-  if (prevBtn) prevBtn.addEventListener("click", () => goTo(index - 1));
-  if (nextBtn) nextBtn.addEventListener("click", () => goTo(index + 1));
+  function syncUi() {
+    dots.forEach((dot, j) => dot.classList.toggle("active", j === index));
+    updateCounter();
+  }
+
+  function goTo(i, smooth = true) {
+    index = (i + slides.length) % slides.length;
+    viewport.scrollTo({
+      left: slides[index].offsetLeft,
+      behavior: smooth && !prefersReducedMotion() ? "smooth" : "auto"
+    });
+    syncUi();
+  }
+
+  const onPrev = () => goTo(index - 1);
+  const onNext = () => goTo(index + 1);
+  const dotHandlers = dots.map((_, i) => () => goTo(i));
+
+  dotHandlers.forEach((handler, i) => dots[i]?.addEventListener("click", handler));
+  prevBtn?.addEventListener("click", onPrev);
+  nextBtn?.addEventListener("click", onNext);
 
   let scrollTimeout;
-  viewport.addEventListener("scroll", () => {
+  const onScroll = () => {
+    if (viewport.classList.contains("is-dragging")) return;
     clearTimeout(scrollTimeout);
     scrollTimeout = setTimeout(() => {
-      const center = viewport.scrollLeft + viewport.clientWidth / 2;
-      slides.forEach((slide, i) => {
-        const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
-        if (Math.abs(center - slideCenter) < slide.offsetWidth / 2) index = i;
-      });
-      dots.forEach((dot, j) => dot.classList.toggle("active", j === index));
-    }, 80);
-  }, { passive: true });
+      index = getNearestGalleryIndex(viewport, slides);
+      syncUi();
+    }, 60);
+  };
 
-  goTo(0);
-  modal._galleryGoTo = goTo;
+  viewport.addEventListener("scroll", onScroll, { passive: true });
+
+  const onScrollEnd = () => {
+    if (viewport.classList.contains("is-dragging")) return;
+    index = getNearestGalleryIndex(viewport, slides);
+    syncUi();
+  };
+
+  if ("onscrollend" in viewport) {
+    viewport.addEventListener("scrollend", onScrollEnd);
+  }
+
+  const unbindSwipe = bindGallerySwipe(viewport, slides, () => index, goTo);
+
+  const onKey = (e) => {
+    if (!modal.classList.contains("open")) return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      goTo(index - 1);
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      goTo(index + 1);
+    }
+  };
+
+  document.addEventListener("keydown", onKey);
+
+  goTo(0, false);
+
+  modal._galleryDestroy = () => {
+    clearTimeout(scrollTimeout);
+    viewport.removeEventListener("scroll", onScroll);
+    if ("onscrollend" in viewport) {
+      viewport.removeEventListener("scrollend", onScrollEnd);
+    }
+    unbindSwipe();
+    dotHandlers.forEach((handler, i) => dots[i]?.removeEventListener("click", handler));
+    prevBtn?.removeEventListener("click", onPrev);
+    nextBtn?.removeEventListener("click", onNext);
+    document.removeEventListener("keydown", onKey);
+  };
 }

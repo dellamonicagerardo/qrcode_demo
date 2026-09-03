@@ -549,12 +549,12 @@
 
     gallery.innerHTML = images.map((src) => `
       <div class="gallery-slide">
-        <img src="${src}" alt="${product.name[lang]}">
+        <img src="${src}" alt="${product.name[lang]}" draggable="false">
       </div>
     `).join("");
 
     dotsWrap.innerHTML = images.length > 1
-      ? images.map((_, i) => `<button type="button" class="gallery-dot${i === 0 ? " active" : ""}" aria-label="Foto ${i + 1}"></button>`).join("")
+      ? images.map((_, i) => `<button type="button" class="gallery-dot${i === 0 ? " active" : ""}" aria-label="${t("photo")} ${i + 1}"></button>`).join("")
       : "";
 
     document.getElementById("modal-name").textContent = product.name[lang];
@@ -603,11 +603,16 @@
     }
 
     initModalGallery(els.productModal);
+
+    const scrollArea = els.productModal.querySelector(".modal-scroll");
+    if (scrollArea) scrollArea.scrollTop = 0;
+
     els.productModal.classList.add("open");
     document.body.style.overflow = "hidden";
   }
 
   function closeProductModal() {
+    destroyModalGallery(els.productModal);
     els.productModal.classList.remove("open");
     document.body.style.overflow = "";
   }
