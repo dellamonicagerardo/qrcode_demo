@@ -123,6 +123,8 @@ function initCarousel(viewport) {
   }};
 }
 
+const GALLERY_ANIM_MS = 200;
+
 function destroyModalGallery(modal) {
   if (modal?._galleryDestroy) {
     modal._galleryDestroy();
@@ -130,7 +132,53 @@ function destroyModalGallery(modal) {
   }
 }
 
+function stopGalleryAnimation(viewport) {
+  if (viewport?._galleryAnimFrame) {
+    cancelAnimationFrame(viewport._galleryAnimFrame);
+    viewport._galleryAnimFrame = null;
+  }
+  viewport?.classList.remove("is-animating");
+}
+
+function animateGalleryScroll(viewport, targetLeft, duration = GALLERY_ANIM_MS) {
+  stopGalleryAnimation(viewport);
+
+  if (prefersReducedMotion()) {
+    viewport.scrollLeft = targetLeft;
+    return;
+  }
+
+  const startLeft = viewport.scrollLeft;
+  const distance = targetLeft - startLeft;
+  if (Math.abs(distance) < 2) {
+    viewport.scrollLeft = targetLeft;
+    return;
+  }
+
+  viewport.classList.add("is-animating");
+  const startTime = performance.now();
+
+  function step(now) {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - (1 - t) ** 3;
+    viewport.scrollLeft = startLeft + distance * eased;
+    if (t < 1) {
+      viewport._galleryAnimFrame = requestAnimationFrame(step);
+    } else {
+      viewport.scrollLeft = targetLeft;
+      stopGalleryAnimation(viewport);
+    }
+  }
+
+  viewport._galleryAnimFrame = requestAnimationFrame(step);
+}
+
 function getNearestGalleryIndex(viewport, slides) {
+  const width = viewport.clientWidth || 1;
+  if (width > 0 && slides.length > 1) {
+    return Math.min(slides.length - 1, Math.max(0, Math.round(viewport.scrollLeft / width)));
+  }
+
   const center = viewport.scrollLeft + viewport.clientWidth / 2;
   let nearest = 0;
   let minDist = Infinity;
@@ -145,21 +193,22 @@ function getNearestGalleryIndex(viewport, slides) {
   return nearest;
 }
 
-function bindGallerySwipe(viewport, slides, getIndex, goTo) {
+function bindGalleryMouseDrag(viewport, slides, getIndex, goTo) {
   let startX = 0;
   let startY = 0;
   let startScrollLeft = 0;
   let startIndex = 0;
   let axisLock = null;
   let pointerId = null;
-  let dragging = false;
+  let mouseDragging = false;
 
-  function finishGesture(endX) {
-    if (axisLock !== "x") {
+  function finishMouseGesture(endX) {
+    viewport.classList.remove("is-dragging");
+
+    if (!mouseDragging || axisLock !== "x") {
+      mouseDragging = false;
       axisLock = null;
       pointerId = null;
-      dragging = false;
-      viewport.classList.remove("is-dragging");
       return;
     }
 
@@ -176,26 +225,26 @@ function bindGallerySwipe(viewport, slides, getIndex, goTo) {
       goTo(startIndex, true);
     }
 
+    mouseDragging = false;
     axisLock = null;
     pointerId = null;
-    dragging = false;
-    viewport.classList.remove("is-dragging");
   }
 
   const onPointerDown = (e) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    stopGalleryAnimation(viewport);
     pointerId = e.pointerId;
     startIndex = getIndex();
     startX = e.clientX;
     startY = e.clientY;
     startScrollLeft = viewport.scrollLeft;
     axisLock = null;
-    dragging = false;
+    mouseDragging = false;
     viewport.setPointerCapture(e.pointerId);
   };
 
   const onPointerMove = (e) => {
-    if (e.pointerId !== pointerId) return;
+    if (e.pointerType !== "mouse" || e.pointerId !== pointerId) return;
 
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
@@ -203,12 +252,12 @@ function bindGallerySwipe(viewport, slides, getIndex, goTo) {
     if (!axisLock && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
       axisLock = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
       if (axisLock === "x") {
-        dragging = true;
+        mouseDragging = true;
         viewport.classList.add("is-dragging");
       }
     }
 
-    if (dragging && axisLock === "x" && e.pointerType === "mouse") {
+    if (mouseDragging) {
       const minIdx = Math.max(startIndex - 1, 0);
       const maxIdx = Math.min(startIndex + 1, slides.length - 1);
       const minScroll = slides[minIdx].offsetLeft;
@@ -219,16 +268,16 @@ function bindGallerySwipe(viewport, slides, getIndex, goTo) {
   };
 
   const onPointerUp = (e) => {
-    if (e.pointerId !== pointerId) return;
-    finishGesture(e.clientX);
+    if (e.pointerType !== "mouse" || e.pointerId !== pointerId) return;
+    finishMouseGesture(e.clientX);
     if (viewport.hasPointerCapture(e.pointerId)) {
       viewport.releasePointerCapture(e.pointerId);
     }
   };
 
   const onPointerCancel = (e) => {
-    if (e.pointerId !== pointerId) return;
-    finishGesture(e.clientX);
+    if (e.pointerType !== "mouse" || e.pointerId !== pointerId) return;
+    finishMouseGesture(e.clientX);
   };
 
   viewport.addEventListener("pointerdown", onPointerDown);
@@ -289,11 +338,26 @@ function initModalGallery(modal) {
 
   function goTo(i, smooth = true) {
     index = (i + slides.length) % slides.length;
-    viewport.scrollTo({
-      left: slides[index].offsetLeft,
-      behavior: smooth && !prefersReducedMotion() ? "smooth" : "auto"
-    });
+    const target = slides[index].offsetLeft;
     syncUi();
+    if (smooth) {
+      animateGalleryScroll(viewport, target);
+    } else {
+      stopGalleryAnimation(viewport);
+      viewport.scrollLeft = target;
+    }
+  }
+
+  function snapToNearest(smooth = true) {
+    if (viewport.classList.contains("is-animating")) return;
+    const nearest = getNearestGalleryIndex(viewport, slides);
+    const targetLeft = slides[nearest].offsetLeft;
+    if (Math.abs(viewport.scrollLeft - targetLeft) > 2) {
+      goTo(nearest, smooth);
+    } else {
+      index = nearest;
+      syncUi();
+    }
   }
 
   const onPrev = () => goTo(index - 1);
@@ -304,29 +368,38 @@ function initModalGallery(modal) {
   prevBtn?.addEventListener("click", onPrev);
   nextBtn?.addEventListener("click", onNext);
 
-  let scrollTimeout;
+  let scrollRaf = 0;
+  let touchSnapTimeout;
+
   const onScroll = () => {
     if (viewport.classList.contains("is-dragging")) return;
-    clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => {
+    cancelAnimationFrame(scrollRaf);
+    scrollRaf = requestAnimationFrame(() => {
       index = getNearestGalleryIndex(viewport, slides);
       syncUi();
-    }, 60);
+    });
   };
 
   viewport.addEventListener("scroll", onScroll, { passive: true });
 
   const onScrollEnd = () => {
-    if (viewport.classList.contains("is-dragging")) return;
-    index = getNearestGalleryIndex(viewport, slides);
-    syncUi();
+    if (viewport.classList.contains("is-dragging") || viewport.classList.contains("is-animating")) return;
+    snapToNearest(true);
   };
 
   if ("onscrollend" in viewport) {
     viewport.addEventListener("scrollend", onScrollEnd);
   }
 
-  const unbindSwipe = bindGallerySwipe(viewport, slides, () => index, goTo);
+  const onTouchEnd = () => {
+    clearTimeout(touchSnapTimeout);
+    touchSnapTimeout = setTimeout(() => snapToNearest(true), 80);
+  };
+
+  viewport.addEventListener("touchend", onTouchEnd, { passive: true });
+  viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+  const unbindMouseDrag = bindGalleryMouseDrag(viewport, slides, () => index, goTo);
 
   const onKey = (e) => {
     if (!modal.classList.contains("open")) return;
@@ -345,12 +418,16 @@ function initModalGallery(modal) {
   goTo(0, false);
 
   modal._galleryDestroy = () => {
-    clearTimeout(scrollTimeout);
+    cancelAnimationFrame(scrollRaf);
+    clearTimeout(touchSnapTimeout);
+    stopGalleryAnimation(viewport);
     viewport.removeEventListener("scroll", onScroll);
     if ("onscrollend" in viewport) {
       viewport.removeEventListener("scrollend", onScrollEnd);
     }
-    unbindSwipe();
+    viewport.removeEventListener("touchend", onTouchEnd);
+    viewport.removeEventListener("touchcancel", onTouchEnd);
+    unbindMouseDrag();
     dotHandlers.forEach((handler, i) => dots[i]?.removeEventListener("click", handler));
     prevBtn?.removeEventListener("click", onPrev);
     nextBtn?.removeEventListener("click", onNext);

@@ -1336,18 +1336,24 @@ html.text-large .product-card .product-price {
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   border-radius: 20px 20px 0 0;
-  touch-action: pan-x pinch-zoom;
+  touch-action: pan-x;
   overscroll-behavior-x: contain;
   cursor: grab;
+}
+
+.gallery-viewport.is-animating {
+  scroll-snap-type: none;
 }
 
 .gallery-viewport.is-dragging {
   cursor: grabbing;
   scroll-snap-type: none;
   user-select: none;
+  touch-action: none;
 }
 
 .gallery-viewport::-webkit-scrollbar {
@@ -1356,8 +1362,9 @@ html.text-large .product-card .product-price {
 
 .gallery-slide {
   flex: 0 0 100%;
+  width: 100%;
   min-width: 100%;
-  scroll-snap-align: start;
+  scroll-snap-align: center;
   scroll-snap-stop: always;
 }
 
