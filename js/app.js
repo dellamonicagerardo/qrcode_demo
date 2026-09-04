@@ -66,11 +66,51 @@
     return (I18N[lang] || I18N.it)[key];
   }
 
-  function menuUrl() {
+  function menuUrl(route) {
     const url = new URL(window.location.href);
     if (ACTIVE_MENU_ID) url.searchParams.set("menu", ACTIVE_MENU_ID);
-    url.hash = "";
-    return `${url.pathname}${url.search}`;
+    const hash = routeHash(route || currentSpaState() || makeRoute({ view: "menu" }));
+    return `${url.pathname}${url.search}${hash}`;
+  }
+
+  function routeHash(route) {
+    if (!route || route.view === "menu") return "";
+    if (route.view === "search" && route.search) {
+      return `#cerca/${encodeURIComponent(route.search)}`;
+    }
+    if (route.view === "product" && route.categoryId && route.productId) {
+      return `#categoria/${encodeURIComponent(route.categoryId)}/prodotto/${encodeURIComponent(route.productId)}`;
+    }
+    if ((route.view === "category" || route.view === "product") && route.categoryId) {
+      return `#categoria/${encodeURIComponent(route.categoryId)}`;
+    }
+    return "";
+  }
+
+  function parseHashRoute() {
+    const raw = (window.location.hash || "").replace(/^#/, "").trim();
+    if (!raw || raw === "/" || raw === "menu") return makeRoute({ view: "menu" });
+
+    const parts = raw.split("/").map((part) => {
+      try { return decodeURIComponent(part); } catch { return part; }
+    });
+
+    if (parts[0] === "categoria" && parts[1]) {
+      if (parts[2] === "prodotto" && parts[3]) {
+        return makeRoute({
+          view: "product",
+          categoryId: parts[1],
+          productId: parts[3]
+        });
+      }
+      return makeRoute({ view: "category", categoryId: parts[1] });
+    }
+
+    if (parts[0] === "cerca" && parts[1] != null && parts[1] !== "") {
+      return makeRoute({ view: "search", search: parts.slice(1).join("/") });
+    }
+
+    return makeRoute({ view: "menu" });
   }
 
   function makeRoute(partial = {}) {
@@ -79,7 +119,7 @@
       menu: ACTIVE_MENU_ID || null,
       view: "menu",
       categoryId: null,
-      productName: null,
+      productId: null,
       search: "",
       overlay: null,
       legalType: null,
@@ -102,12 +142,12 @@
 
   function pushRoute(route) {
     if (!ACTIVE_MENU_ID) return;
-    history.pushState(withDepth(route), "", menuUrl());
+    history.pushState(withDepth(route), "", menuUrl(route));
   }
 
   function replaceRoute(route) {
     if (!ACTIVE_MENU_ID) return;
-    history.replaceState(withDepth(route), "", menuUrl());
+    history.replaceState(withDepth(route), "", menuUrl(route));
   }
 
   function commitRoute(partial, mode = "push") {
@@ -117,10 +157,18 @@
     else pushRoute(route);
   }
 
-  function findProduct(categoryId, productName) {
-    const cat = CATEGORIES.find((c) => c.id === categoryId);
-    if (!cat) return null;
-    return cat.products.find((p) => p.name.it === productName) || null;
+  function findProduct(categoryId, productId) {
+    if (!productId) return null;
+    if (categoryId) {
+      const cat = CATEGORIES.find((c) => c.id === categoryId);
+      const inCat = cat?.products.find((p) => p.id === productId);
+      if (inCat) return inCat;
+    }
+    for (const cat of CATEGORIES) {
+      const found = cat.products.find((p) => p.id === productId);
+      if (found) return found;
+    }
+    return null;
   }
 
   function closeProductModalUI() {
@@ -200,7 +248,7 @@
       if (next.overlay !== "legal") closeLegalModalUI();
 
       if (next.view === "product") {
-        const product = findProduct(next.categoryId, next.productName);
+        const product = findProduct(next.categoryId, next.productId);
         if (!product) {
           applyRoute(makeRoute({
             view: next.search ? "search" : (next.categoryId ? "category" : "menu"),
@@ -209,6 +257,7 @@
           }));
           return;
         }
+        if (!next.categoryId) next.categoryId = product._categoryId;
         if (next.search) {
           searchQuery = next.search;
           els.searchInput.value = next.search;
@@ -644,6 +693,12 @@
     return `<div class="product-allergens" aria-label="${t("allergens")}">${ids.map((id) => allergenIconHtml(id)).join("")}</div>`;
   }
 
+  function productSpicyHtml(product) {
+    const level = Number(product.spicy) || 0;
+    if (level <= 0) return "";
+    return `<div class="product-spicy" aria-label="${t("spicy")}">${spicyIconHtml(level)}<span>${t("spicy")}</span></div>`;
+  }
+
   function productPregnancyHtml(product) {
     const warnings = product.pregnancyWarnings || [];
     if (!warnings.length) return "";
@@ -696,12 +751,16 @@
     const desc = product.desc[lang];
     const item = document.createElement("article");
     item.className = "product-card" + (i % 2 === 1 ? " reverse" : "");
+    item.dataset.productId = product.id || "";
     item.innerHTML = `
       <div class="product-card-inner">
         ${productThumbHtml(product)}
         <div class="product-body">
           ${categoryName ? `<p class="product-category-label">${categoryName}</p>` : ""}
-          <h3 class="product-name">${product.name[lang]}</h3>
+          <div class="product-name-row">
+            <h3 class="product-name">${product.name[lang]}</h3>
+          </div>
+          ${productSpicyHtml(product)}
           ${productPregnancyHtml(product)}
           ${productAllergensHtml(product)}
           ${desc ? `<p class="product-desc">${desc}</p>` : ""}
@@ -788,6 +847,13 @@
     document.getElementById("modal-name").textContent = product.name[lang];
     document.getElementById("modal-price").textContent = `€ ${product.price}`;
 
+    const spicyEl = document.getElementById("modal-spicy");
+    if (spicyEl) {
+      const spicyHtml = productSpicyHtml(product);
+      spicyEl.innerHTML = spicyHtml;
+      spicyEl.classList.toggle("hidden", !spicyHtml);
+    }
+
     const descEl = document.getElementById("modal-desc");
     const hasIngredients = ingredients.length > 0;
     descEl.textContent = desc || "";
@@ -842,7 +908,7 @@
     commitRoute({
       view: "product",
       categoryId: product._categoryId || currentCategory?.id || null,
-      productName: product.name.it,
+      productId: product.id,
       search: fromSearch ? searchQuery : ""
     }, "push");
   }
@@ -982,7 +1048,17 @@
     renderLangSwitcher();
     renderAllergenFilter();
     renderCategories();
-    commitRoute({ view: "menu" }, "replace");
+
+    const boot = withDepth(parseHashRoute());
+    if (boot.view === "product" && boot.categoryId && boot.productId) {
+      replaceRoute(makeRoute({ view: "category", categoryId: boot.categoryId }));
+      commitRoute(boot, "push");
+    } else if (boot.view === "category" || boot.view === "search") {
+      replaceRoute(makeRoute({ view: "menu" }));
+      commitRoute(boot, "push");
+    } else {
+      commitRoute(boot, "replace");
+    }
   } else {
     renderMenuPicker();
   }

@@ -88,11 +88,43 @@ function inferAllergenIds(product, catId) {
   return Array.from(ids);
 }
 
+function slugifyId(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64) || "prodotto";
+}
+
+function ensureProductId(product, usedIds) {
+  const base = slugifyId(product.id || product.name?.it || product.name?.en);
+  let id = base;
+  let n = 2;
+  while (usedIds.has(id)) {
+    id = `${base}-${n++}`;
+  }
+  usedIds.add(id);
+  product.id = id;
+  return id;
+}
+
+function inferSpicy(product) {
+  if (typeof product.spicy === "number") return Math.max(0, Math.min(3, product.spicy));
+  if (product.spicy === true) return 1;
+  if (product.spicy === false) return 0;
+  const text = `${product.name?.it || ""} ${product.name?.en || ""} ${product.desc?.it || ""} ${product.desc?.en || ""}`;
+  if (/piccante|spicy|diavola|peperoncino|chili|jalape/i.test(text)) return 1;
+  return 0;
+}
+
 function enrichProducts(menu) {
   const withPhotos = menu.config?.photos !== false;
   const pizzaIds = new Set(menu.config?.pizzaCategoryIds || ["pizze", "pizze-dautore"]);
   const pizzaImages = menu.config?.pizzaImages || DEFAULT_PIZZA_IMAGES;
   let pizzaIdx = 0;
+  const usedIds = new Set();
 
   menu.categories.forEach((cat) => {
     const isPizza = pizzaIds.has(cat.id);
@@ -102,6 +134,9 @@ function enrichProducts(menu) {
     if (!withPhotos) cat.image = null;
 
     cat.products.forEach((product) => {
+      ensureProductId(product, usedIds);
+      product.spicy = inferSpicy(product);
+
       const ownImages = (Array.isArray(product.images) ? product.images : []).filter(Boolean);
       const productWithoutPhoto = product.image === null || product.images === null;
 
@@ -179,12 +214,66 @@ document.addEventListener("error", (e) => {
   if (e.target?.tagName === "IMG") handleImageError(e.target);
 }, true);
 
+function clearMenuThemeVars() {
+  const root = document.documentElement;
+  [
+    "--menu-accent", "--menu-accent-dark", "--menu-accent-light",
+    "--menu-bg", "--menu-bg-light", "--menu-card-bg", "--menu-card-bg-light",
+    "--menu-text", "--menu-text-light", "--menu-muted", "--menu-muted-light",
+    "--menu-font"
+  ].forEach((key) => root.style.removeProperty(key));
+  document.getElementById("menu-brand-font")?.remove();
+}
+
+function applySiteTheme(site) {
+  clearMenuThemeVars();
+  const theme = site?.theme;
+  if (!theme) return;
+
+  const root = document.documentElement;
+  const map = {
+    "--menu-accent": theme.accent,
+    "--menu-accent-dark": theme.accentDark || theme.accent,
+    "--menu-accent-light": theme.accentLight || theme.accent,
+    "--menu-bg": theme.bg,
+    "--menu-bg-light": theme.bgLight,
+    "--menu-card-bg": theme.cardBg,
+    "--menu-card-bg-light": theme.cardBgLight,
+    "--menu-text": theme.text,
+    "--menu-text-light": theme.textLight,
+    "--menu-muted": theme.muted,
+    "--menu-muted-light": theme.mutedLight,
+    "--menu-font": theme.font ? `"${theme.font}", system-ui, sans-serif` : null
+  };
+  Object.entries(map).forEach(([key, value]) => {
+    if (value) root.style.setProperty(key, value);
+  });
+
+  if (theme.fontUrl) {
+    const link = document.createElement("link");
+    link.id = "menu-brand-font";
+    link.rel = "stylesheet";
+    link.href = theme.fontUrl;
+    document.head.appendChild(link);
+  }
+
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    const light = document.documentElement.classList.contains("theme-light");
+    meta.content = light
+      ? (theme.bgLight || theme.bg || meta.content)
+      : (theme.bg || meta.content);
+  }
+}
+
 function applySiteToPage(site) {
   if (!site) return;
 
   document.title = site.pageTitle || `${site.name} Menu`;
   const meta = document.querySelector('meta[name="description"]');
   if (meta) meta.content = site.metaDescription || `Menu digitale - ${site.name}`;
+
+  applySiteTheme(site);
 
   applyOptionalImage(document.querySelector(".cover img"), site.cover, site.coverAlt || `Cover ${site.name}`);
   document.querySelector(".cover")?.classList.toggle("hidden", !site.cover);

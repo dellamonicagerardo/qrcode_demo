@@ -12,7 +12,18 @@ const MENU_WHITE_GOLD = {
     instagram: "https://www.instagram.com/pizzeria_whitegold/",
     facebook: "https://www.facebook.com/pizzeriawhitegold",
     tripadvisor: "https://www.tripadvisor.it/Restaurant_Review-g187781-d23543706-Reviews-Pizzeria_White_Gold-Salerno_Amalfi_Coast_Province_of_Salerno_Campania.html",
-    review: "https://search.google.com/local/writereview?placeid=ChIJUQbGHEjDOxMR1bpaKkFPeDU"
+    review: "https://search.google.com/local/writereview?placeid=ChIJUQbGHEjDOxMR1bpaKkFPeDU",
+    theme: {
+      accent: "#c4a35a",
+      accentDark: "#9a7d3c",
+      accentLight: "#8a6d2a",
+      bg: "#1a1612",
+      bgLight: "#f7f1e6",
+      cardBg: "#252018",
+      cardBgLight: "#ffffff",
+      font: "Montserrat",
+      fontUrl: "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap"
+    }
   },
   config: {
     pizzaCategoryIds: ["pizze", "pizze-dautore"]
@@ -29,7 +40,7 @@ const MENU_WHITE_GOLD = {
         "https://images.unsplash.com/photo-1595854341625-f33ee5427437?w=500&h=889&fit=crop"
       ]},
       { name: { it: "Capricciosa", en: "Capricciosa" }, price: "9,00", desc: { it: "Pomodoro, mozzarella, prosciutto cotto, funghi, carciofi, olive", en: "Tomato, mozzarella, ham, mushrooms, artichokes, olives" } },
-      { name: { it: "Decisa", en: "Decisa" }, price: "12,00", desc: { it: "Pomodoro, mozzarella, salame piccante, olive", en: "Tomato, mozzarella, spicy salami, olives" } },
+      { id: "decisa", name: { it: "Decisa", en: "Decisa" }, price: "12,00", spicy: 2, desc: { it: "Pomodoro, mozzarella, salame piccante, olive", en: "Tomato, mozzarella, spicy salami, olives" } },
       { name: { it: "Bufalina", en: "Bufalina" }, price: "7,00", desc: { it: "Pomodoro, mozzarella di bufala, basilico", en: "Tomato, buffalo mozzarella, basil" } },
       { name: { it: "4 Formaggi", en: "4 Cheeses" }, price: "10,00", desc: { it: "Mozzarella, gorgonzola, parmigiano, provola", en: "Mozzarella, gorgonzola, parmesan, provola" } },
       { name: { it: "Nerano", en: "Nerano" }, price: "10,00", desc: { it: "Zucchine, provola, basilico", en: "Zucchini, provola cheese, basil" } },

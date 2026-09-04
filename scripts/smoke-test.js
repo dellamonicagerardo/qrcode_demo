@@ -15,9 +15,16 @@ const stubEl = new Proxy({}, {
         contains: (name) => classes.has(name)
       };
     }
-    if (prop === "style" || prop === "dataset") return {};
+    if (prop === "style" || prop === "dataset") {
+      return new Proxy({}, {
+        get: () => () => {},
+        set: () => true
+      });
+    }
     if (typeof prop === "string" && prop.startsWith("set")) return () => {};
-    if (prop === "removeAttribute" || prop === "querySelector") return () => stubEl;
+    if (prop === "removeAttribute" || prop === "querySelector" || prop === "remove") return () => stubEl;
+    if (prop === "createElement") return () => stubEl;
+    if (prop === "appendChild") return () => {};
     return "";
   },
   set: () => true
@@ -27,10 +34,12 @@ const sandbox = {
   console,
   document: {
     documentElement: stubEl,
+    head: stubEl,
     title: "",
     querySelector: () => stubEl,
     querySelectorAll: () => [],
     getElementById: () => stubEl,
+    createElement: () => stubEl,
     addEventListener: () => {}
   },
   window: { matchMedia: () => ({ matches: false }) },
@@ -76,6 +85,11 @@ menuIds.forEach((id) => {
   if (!expectPhotos && withoutPhoto.length !== products.length) problems.push("prodotti con foto in un menu senza foto");
   if (expectPhotos === false && !classes.has("no-photos")) problems.push("classe no-photos mancante");
   if (expectPhotos === true && classes.has("no-photos")) problems.push("classe no-photos inattesa");
+
+  const missingIds = products.filter((p) => !p.id || typeof p.id !== "string");
+  const idSet = new Set(products.map((p) => p.id));
+  if (missingIds.length) problems.push(`${missingIds.length} prodotti senza id`);
+  if (idSet.size !== products.length) problems.push("id prodotto duplicati");
 
   const label = expectPhotos ? "con foto" : "senza foto";
   if (problems.length) {

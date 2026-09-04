@@ -14,7 +14,18 @@ const MENU_TRATTORIA_ESSENZIALE = {
     instagram: null,
     facebook: null,
     tripadvisor: null,
-    review: null
+    review: null,
+    theme: {
+      accent: "#3d6b5a",
+      accentDark: "#2f5346",
+      accentLight: "#2f5346",
+      bg: "#141916",
+      bgLight: "#eef2ef",
+      cardBg: "#1e2622",
+      cardBgLight: "#ffffff",
+      font: "Source Serif 4",
+      fontUrl: "https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&display=swap"
+    }
   },
   config: {
     photos: false

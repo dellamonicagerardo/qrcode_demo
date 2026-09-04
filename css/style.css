@@ -1,23 +1,25 @@
 :root {
-  --bg: #1a1612;
-  --text: #ffffff;
-  --accent: #ad8a36;
-  --accent-dark: #8a6d2a;
-  --card-bg: #252018;
-  --muted: rgba(255, 255, 255, 0.75);
+  --bg: var(--menu-bg, #1a1612);
+  --text: var(--menu-text, #ffffff);
+  --accent: var(--menu-accent, #ad8a36);
+  --accent-dark: var(--menu-accent-dark, #8a6d2a);
+  --card-bg: var(--menu-card-bg, #252018);
+  --muted: var(--menu-muted, rgba(255, 255, 255, 0.75));
   --max-width: 480px;
   --font-base: 1rem;
   --font-title: 1.5rem;
   --font-product: 1rem;
   --touch-min: 44px;
+  --font-family: var(--menu-font, "Montserrat", Arial, system-ui, sans-serif);
 }
 
 html.theme-light {
-  --bg: #f5f0e8;
-  --text: #1a1612;
-  --card-bg: #ffffff;
-  --muted: rgba(26, 22, 18, 0.75);
-  --accent: #8a6d2a;
+  --bg: var(--menu-bg-light, #f5f0e8);
+  --text: var(--menu-text-light, #1a1612);
+  --card-bg: var(--menu-card-bg-light, #ffffff);
+  --muted: var(--menu-muted-light, rgba(26, 22, 18, 0.75));
+  --accent: var(--menu-accent-light, var(--menu-accent, #8a6d2a));
+  --accent-dark: var(--menu-accent-dark, #8a6d2a);
 }
 
 html.text-large {
@@ -38,7 +40,7 @@ html {
 
 body {
   margin: 0;
-  font-family: "Montserrat", Arial, system-ui, sans-serif;
+  font-family: var(--font-family);
   font-size: var(--font-base);
   background: var(--bg);
   color: var(--text);
@@ -447,6 +449,52 @@ img[hidden] {
 
 .product-pregnancy-label {
   line-height: 1.2;
+}
+
+.product-spicy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 14px;
+  background: rgba(196, 69, 54, 0.18);
+  border: 1px solid rgba(196, 69, 54, 0.5);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #f0a090;
+}
+
+html.theme-light .product-spicy {
+  color: #a33a2c;
+  background: rgba(196, 69, 54, 0.1);
+}
+
+.product-spicy-peppers {
+  display: inline-flex;
+  gap: 1px;
+  align-items: center;
+}
+
+.product-spicy-peppers .spicy-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.product-name-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.55rem;
+}
+
+.product-name-row .product-name {
+  margin: 0;
+}
+
+.modal-spicy {
+  margin: 0.35rem 0 0.75rem;
 }
 
 .pregnancy-icon-wrap {

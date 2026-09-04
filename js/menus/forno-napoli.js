@@ -12,7 +12,18 @@ const MENU_FORNO_NAPOLI = {
     instagram: "https://www.instagram.com/",
     facebook: null,
     tripadvisor: null,
-    review: null
+    review: null,
+    theme: {
+      accent: "#d4563e",
+      accentDark: "#a83f2c",
+      accentLight: "#b34432",
+      bg: "#1c1210",
+      bgLight: "#faf6f2",
+      cardBg: "#2a1a16",
+      cardBgLight: "#ffffff",
+      font: "DM Sans",
+      fontUrl: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap"
+    }
   },
   config: {
     pizzaCategoryIds: ["pizze", "pizze-speciali"]
@@ -28,7 +39,7 @@ const MENU_FORNO_NAPOLI = {
           "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&h=889&fit=crop",
           "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500&h=889&fit=crop"
         ]},
-        { name: { it: "Diavola", en: "Diavola" }, price: "8,00", desc: { it: "Pomodoro, mozzarella, salame piccante", en: "Tomato, mozzarella, spicy salami" } }
+        { id: "diavola", name: { it: "Diavola", en: "Diavola" }, price: "8,00", spicy: 2, desc: { it: "Pomodoro, mozzarella, salame piccante", en: "Tomato, mozzarella, spicy salami" } }
       ]
     },
     {

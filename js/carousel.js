@@ -26,7 +26,12 @@ function applyPrefs(prefs) {
   root.classList.toggle("categories-list", prefs.categoryView === "list");
   root.dataset.theme = prefs.theme;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = prefs.theme === "light" ? "#f5f0e8" : "#1a1612";
+  if (meta) {
+    const styles = getComputedStyle(root);
+    meta.content = prefs.theme === "light"
+      ? (styles.getPropertyValue("--bg").trim() || "#f5f0e8")
+      : (styles.getPropertyValue("--bg").trim() || "#1a1612");
+  }
 }
 
 function prefersReducedMotion() {

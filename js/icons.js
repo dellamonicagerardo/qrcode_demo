@@ -17,6 +17,13 @@ const ICON_PREGNANCY = `<svg class="pregnancy-icon" viewBox="0 0 24 24" aria-hid
   <path fill="currentColor" opacity="0.42" d="M13.2 13.6C13 13 12.5 12.9 12.3 13.4 12.1 12.9 11.6 13 11.4 13.6 11.2 14.2 12.3 15 12.3 15 12.3 15 13.4 14.2 13.2 13.6Z"/>
 </svg>`;
 
+const ICON_SPICY = `<svg class="spicy-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.2 3.2c-.4 1.6-1.2 2.8-2.4 3.6.2-1.4-.2-2.8-1.2-4C11.4 1.4 9.6 1 8.2 1.4c.8 1.6.8 3.4 0 5-1.2 2.2-3.4 3.4-5.2 3.2 1.6 2.2 4.2 3.6 7 3.6 4.4 0 8-2.8 8-6.4 0-1.4-.6-2.6-1.8-3.6z"/><path fill="currentColor" d="M9.5 14.2c-1.2 1.4-1.8 3-1.8 4.6 0 2.2 1.6 4 4.2 4.2 2.2.2 4.2-1.2 5-3.2-2.4.2-4.6-1.2-5.8-3.4-.4-.8-1-1.6-1.6-2.2z"/></svg>`;
+
+function spicyIconHtml(level = 1) {
+  const n = Math.max(1, Math.min(3, Number(level) || 1));
+  return `<span class="product-spicy-peppers" aria-hidden="true">${ICON_SPICY.repeat(n)}</span>`;
+}
+
 const ALLERGENS = [
   { id: "glutine", color: "#e8a735", name: { it: "Glutine", en: "Gluten" }, icon: `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C8 6 5 9 5 13a7 7 0 0 0 14 0c0-4-3-7-7-11zm0 18a5 5 0 0 1-5-5c0-2.5 2-5.2 5-8.7 3 3.5 5 6.2 5 8.7a5 5 0 0 1-5 5z"/></svg>` },
   { id: "crostacei", color: "#e07040", name: { it: "Crostacei", en: "Crustaceans" }, icon: `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 14c2-3 5-5 8-5s6 2 8 5l-2 1c-1.5-2-4-3.5-6-3.5S7.5 13 6 15l-2-1zm2 3 1.5 2.5L9 18l-1.5-2.5L6 14l-1.5 2.5L3 18l1.5 2.5L6 22l1.5-2.5L9 18 7.5 15.5 6 17z"/></svg>` },
