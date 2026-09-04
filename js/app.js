@@ -547,11 +547,11 @@
     const pregnancyEl = document.getElementById("modal-pregnancy");
     const allergensEl = document.getElementById("modal-allergens");
 
-    gallery.innerHTML = images.map((src) => `
+    gallery.innerHTML = `<div class="gallery-track">${images.map((src) => `
       <div class="gallery-slide">
         <img src="${src}" alt="${product.name[lang]}" draggable="false">
       </div>
-    `).join("");
+    `).join("")}</div>`;
 
     dotsWrap.innerHTML = images.length > 1
       ? images.map((_, i) => `<button type="button" class="gallery-dot${i === 0 ? " active" : ""}" aria-label="${t("photo")} ${i + 1}"></button>`).join("")
@@ -602,13 +602,13 @@
       allergensEl.innerHTML = `<strong>${t("allergens")}</strong>${iconsHtml}<p class="allergen-note">${t("allergenNote")}</p>`;
     }
 
-    initModalGallery(els.productModal);
-
     const scrollArea = els.productModal.querySelector(".modal-scroll");
     if (scrollArea) scrollArea.scrollTop = 0;
 
     els.productModal.classList.add("open");
     document.body.style.overflow = "hidden";
+
+    initModalGallery(els.productModal);
   }
 
   function closeProductModal() {

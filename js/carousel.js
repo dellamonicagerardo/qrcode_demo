@@ -123,269 +123,11 @@ function initCarousel(viewport) {
   }};
 }
 
-const GALLERY_ANIM_MS = 200;
-
 function destroyModalGallery(modal) {
   if (modal?._galleryDestroy) {
     modal._galleryDestroy();
     modal._galleryDestroy = null;
   }
-}
-
-function stopGalleryAnimation(viewport) {
-  if (viewport?._galleryAnimFrame) {
-    cancelAnimationFrame(viewport._galleryAnimFrame);
-    viewport._galleryAnimFrame = null;
-  }
-  viewport?.classList.remove("is-animating");
-}
-
-function animateGalleryScroll(viewport, targetLeft, duration = GALLERY_ANIM_MS) {
-  stopGalleryAnimation(viewport);
-
-  if (prefersReducedMotion()) {
-    viewport.scrollLeft = targetLeft;
-    return;
-  }
-
-  const startLeft = viewport.scrollLeft;
-  const distance = targetLeft - startLeft;
-  if (Math.abs(distance) < 2) {
-    viewport.scrollLeft = targetLeft;
-    return;
-  }
-
-  viewport.classList.add("is-animating");
-  const startTime = performance.now();
-
-  function step(now) {
-    const t = Math.min(1, (now - startTime) / duration);
-    const eased = 1 - (1 - t) ** 3;
-    viewport.scrollLeft = startLeft + distance * eased;
-    if (t < 1) {
-      viewport._galleryAnimFrame = requestAnimationFrame(step);
-    } else {
-      viewport.scrollLeft = targetLeft;
-      stopGalleryAnimation(viewport);
-    }
-  }
-
-  viewport._galleryAnimFrame = requestAnimationFrame(step);
-}
-
-function getNearestGalleryIndex(viewport, slides) {
-  const width = viewport.clientWidth || 1;
-  if (width > 0 && slides.length > 1) {
-    return Math.min(
-      slides.length - 1,
-      Math.max(0, Math.floor((viewport.scrollLeft + width * 0.25) / width))
-    );
-  }
-
-  const center = viewport.scrollLeft + viewport.clientWidth / 2;
-  let nearest = 0;
-  let minDist = Infinity;
-  slides.forEach((slide, i) => {
-    const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
-    const dist = Math.abs(center - slideCenter);
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = i;
-    }
-  });
-  return nearest;
-}
-
-function galleryUseSmooth() {
-  return window.matchMedia("(pointer: fine)").matches;
-}
-
-function clampGalleryScroll(viewport, slides, startIndex, startScrollLeft, dx) {
-  const minIdx = Math.max(startIndex - 1, 0);
-  const maxIdx = Math.min(startIndex + 1, slides.length - 1);
-  const minScroll = slides[minIdx].offsetLeft;
-  const maxScroll = slides[maxIdx].offsetLeft;
-  viewport.scrollLeft = Math.min(maxScroll, Math.max(minScroll, startScrollLeft - dx));
-}
-
-function lockGalleryScroll(viewport, targetLeft) {
-  viewport.scrollLeft = targetLeft;
-  let frames = 0;
-  const lock = () => {
-    viewport.scrollLeft = targetLeft;
-    if (++frames < 5) requestAnimationFrame(lock);
-  };
-  requestAnimationFrame(lock);
-}
-
-function bindGalleryTouch(viewport, slides, getIndex, goTo) {
-  let startX = 0;
-  let startY = 0;
-  let startScrollLeft = 0;
-  let startIndex = 0;
-  let tracking = false;
-  let axisLock = null;
-
-  const onTouchStart = (e) => {
-    if (e.touches.length !== 1) return;
-    stopGalleryAnimation(viewport);
-    tracking = true;
-    axisLock = null;
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    startScrollLeft = viewport.scrollLeft;
-    startIndex = getIndex();
-    viewport.classList.add("is-touching");
-  };
-
-  const onTouchMove = (e) => {
-    if (!tracking || e.touches.length !== 1) return;
-
-    const dx = e.touches[0].clientX - startX;
-    const dy = e.touches[0].clientY - startY;
-
-    if (!axisLock && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-      axisLock = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
-    }
-
-    if (axisLock === "x") {
-      clampGalleryScroll(viewport, slides, startIndex, startScrollLeft, dx);
-      e.preventDefault();
-    }
-  };
-
-  const finishTouch = (touch) => {
-    if (!tracking) return;
-    tracking = false;
-    viewport.classList.remove("is-touching");
-
-    if (!touch) return;
-
-    const dx = touch.clientX - startX;
-    const threshold = Math.min(viewport.clientWidth * 0.12, 56);
-    let targetIndex = startIndex;
-
-    if (dx < -threshold) {
-      targetIndex = startIndex + 1;
-    } else if (dx > threshold) {
-      targetIndex = startIndex - 1;
-    }
-
-    goTo(targetIndex, false);
-    axisLock = null;
-  };
-
-  const onTouchEnd = (e) => finishTouch(e.changedTouches[0]);
-
-  viewport.addEventListener("touchstart", onTouchStart, { passive: true });
-  viewport.addEventListener("touchmove", onTouchMove, { passive: false });
-  viewport.addEventListener("touchend", onTouchEnd, { passive: true });
-  viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
-
-  return () => {
-    viewport.removeEventListener("touchstart", onTouchStart);
-    viewport.removeEventListener("touchmove", onTouchMove);
-    viewport.removeEventListener("touchend", onTouchEnd);
-    viewport.removeEventListener("touchcancel", onTouchEnd);
-    viewport.classList.remove("is-touching");
-  };
-}
-
-function bindGalleryMouseDrag(viewport, slides, getIndex, goTo) {
-  let startX = 0;
-  let startY = 0;
-  let startScrollLeft = 0;
-  let startIndex = 0;
-  let axisLock = null;
-  let pointerId = null;
-  let mouseDragging = false;
-
-  function finishMouseGesture(endX) {
-    viewport.classList.remove("is-dragging");
-
-    if (!mouseDragging || axisLock !== "x") {
-      mouseDragging = false;
-      axisLock = null;
-      pointerId = null;
-      return;
-    }
-
-    const dx = endX - startX;
-    const width = viewport.clientWidth;
-    const scrollDelta = viewport.scrollLeft - startScrollLeft;
-    const threshold = Math.min(width * 0.18, 72);
-
-    if (dx < -threshold || scrollDelta > threshold) {
-      goTo(startIndex + 1, true);
-    } else if (dx > threshold || scrollDelta < -threshold) {
-      goTo(startIndex - 1, true);
-    } else {
-      goTo(startIndex, true);
-    }
-
-    mouseDragging = false;
-    axisLock = null;
-    pointerId = null;
-  }
-
-  const onPointerDown = (e) => {
-    if (e.pointerType !== "mouse" || e.button !== 0) return;
-    stopGalleryAnimation(viewport);
-    pointerId = e.pointerId;
-    startIndex = getIndex();
-    startX = e.clientX;
-    startY = e.clientY;
-    startScrollLeft = viewport.scrollLeft;
-    axisLock = null;
-    mouseDragging = false;
-    viewport.setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (e) => {
-    if (e.pointerType !== "mouse" || e.pointerId !== pointerId) return;
-
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-
-    if (!axisLock && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
-      axisLock = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
-      if (axisLock === "x") {
-        mouseDragging = true;
-        viewport.classList.add("is-dragging");
-      }
-    }
-
-    if (mouseDragging) {
-      clampGalleryScroll(viewport, slides, startIndex, startScrollLeft, dx);
-      e.preventDefault();
-    }
-  };
-
-  const onPointerUp = (e) => {
-    if (e.pointerType !== "mouse" || e.pointerId !== pointerId) return;
-    finishMouseGesture(e.clientX);
-    if (viewport.hasPointerCapture(e.pointerId)) {
-      viewport.releasePointerCapture(e.pointerId);
-    }
-  };
-
-  const onPointerCancel = (e) => {
-    if (e.pointerType !== "mouse" || e.pointerId !== pointerId) return;
-    finishMouseGesture(e.clientX);
-  };
-
-  viewport.addEventListener("pointerdown", onPointerDown);
-  viewport.addEventListener("pointermove", onPointerMove, { passive: false });
-  viewport.addEventListener("pointerup", onPointerUp);
-  viewport.addEventListener("pointercancel", onPointerCancel);
-
-  return () => {
-    viewport.removeEventListener("pointerdown", onPointerDown);
-    viewport.removeEventListener("pointermove", onPointerMove);
-    viewport.removeEventListener("pointerup", onPointerUp);
-    viewport.removeEventListener("pointercancel", onPointerCancel);
-    viewport.classList.remove("is-dragging");
-  };
 }
 
 function initModalGallery(modal) {
@@ -394,14 +136,16 @@ function initModalGallery(modal) {
   destroyModalGallery(modal);
 
   const viewport = modal.querySelector(".gallery-viewport");
+  const track = viewport?.querySelector(".gallery-track");
   const wrap = modal.querySelector(".gallery-wrap");
   const counterEl = modal.querySelector(".gallery-counter");
-  if (!viewport) return;
+  if (!viewport || !track) return;
 
-  const slides = Array.from(viewport.querySelectorAll(".gallery-slide"));
+  const slides = Array.from(track.querySelectorAll(".gallery-slide"));
   const dots = Array.from(modal.querySelectorAll(".gallery-dot"));
   const prevBtn = modal.querySelector(".gallery-prev");
   const nextBtn = modal.querySelector(".gallery-next");
+  const last = slides.length - 1;
   const multi = slides.length > 1;
 
   wrap?.classList.toggle("gallery-multi", multi);
@@ -418,62 +162,119 @@ function initModalGallery(modal) {
   if (counterEl) counterEl.classList.remove("hidden");
 
   let index = 0;
+  let width = viewport.clientWidth;
 
-  function updateCounter() {
-    if (!counterEl) return;
-    counterEl.textContent = `${index + 1} / ${slides.length}`;
-    counterEl.setAttribute("aria-label", `${index + 1} / ${slides.length}`);
+  function setOffset(px, animate) {
+    track.classList.toggle("is-animating", animate && !prefersReducedMotion());
+    track.style.transform = `translate3d(${px}px, 0, 0)`;
   }
 
   function syncUi() {
-    dots.forEach((dot, j) => dot.classList.toggle("active", j === index));
-    updateCounter();
+    dots.forEach((dot, i) => dot.classList.toggle("active", i === index));
+    if (prevBtn) prevBtn.disabled = index === 0;
+    if (nextBtn) nextBtn.disabled = index === last;
+    if (counterEl) {
+      counterEl.textContent = `${index + 1} / ${slides.length}`;
+      counterEl.setAttribute("aria-label", `${index + 1} / ${slides.length}`);
+    }
   }
 
-  function goTo(i, smooth = galleryUseSmooth()) {
-    index = (i + slides.length) % slides.length;
-    const target = slides[index].offsetLeft;
+  function goTo(i, animate = true) {
+    index = Math.min(last, Math.max(0, i));
+    width = viewport.clientWidth;
+    setOffset(-index * width, animate);
     syncUi();
-    if (Math.abs(viewport.scrollLeft - target) < 2) {
-      stopGalleryAnimation(viewport);
-      lockGalleryScroll(viewport, target);
-      return;
-    }
-    if (smooth) {
-      animateGalleryScroll(viewport, target);
-    } else {
-      stopGalleryAnimation(viewport);
-      lockGalleryScroll(viewport, target);
-    }
   }
 
-  const onPrev = () => goTo(index - 1, galleryUseSmooth());
-  const onNext = () => goTo(index + 1, galleryUseSmooth());
-  const dotHandlers = dots.map((_, i) => () => goTo(i, galleryUseSmooth()));
+  const onPrev = () => goTo(index - 1);
+  const onNext = () => goTo(index + 1);
+  const dotHandlers = dots.map((_, i) => () => goTo(i));
 
   dotHandlers.forEach((handler, i) => dots[i]?.addEventListener("click", handler));
   prevBtn?.addEventListener("click", onPrev);
   nextBtn?.addEventListener("click", onNext);
 
-  let scrollRaf = 0;
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let startIndex = 0;
+  let delta = 0;
+  let axis = null;
 
-  const onScroll = () => {
-    if (
-      viewport.classList.contains("is-dragging")
-      || viewport.classList.contains("is-animating")
-      || viewport.classList.contains("is-touching")
-    ) return;
-    cancelAnimationFrame(scrollRaf);
-    scrollRaf = requestAnimationFrame(() => {
-      index = getNearestGalleryIndex(viewport, slides);
-      syncUi();
-    });
+  function releasePointer() {
+    if (pointerId !== null && viewport.hasPointerCapture(pointerId)) {
+      viewport.releasePointerCapture(pointerId);
+    }
+    pointerId = null;
+    axis = null;
+    delta = 0;
+    viewport.classList.remove("is-grabbing");
+  }
+
+  const onPointerDown = (e) => {
+    if (pointerId !== null) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    pointerId = e.pointerId;
+    startIndex = index;
+    startX = e.clientX;
+    startY = e.clientY;
+    delta = 0;
+    axis = null;
+    width = viewport.clientWidth;
+    track.classList.remove("is-animating");
   };
 
-  viewport.addEventListener("scroll", onScroll, { passive: true });
+  const onPointerMove = (e) => {
+    if (e.pointerId !== pointerId) return;
 
-  const unbindTouch = bindGalleryTouch(viewport, slides, () => index, goTo);
-  const unbindMouseDrag = bindGalleryMouseDrag(viewport, slides, () => index, goTo);
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    if (!axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        pointerId = null;
+        return;
+      }
+      axis = "x";
+      viewport.classList.add("is-grabbing");
+      viewport.setPointerCapture(pointerId);
+    }
+
+    delta = Math.max(-width, Math.min(width, dx));
+    const atEdge = (startIndex === 0 && delta > 0) || (startIndex === last && delta < 0);
+    setOffset(-startIndex * width + (atEdge ? delta * 0.25 : delta), false);
+    e.preventDefault();
+  };
+
+  const onPointerUp = (e) => {
+    if (e.pointerId !== pointerId) return;
+
+    if (axis !== "x") {
+      releasePointer();
+      return;
+    }
+
+    const threshold = Math.min(width * 0.15, 60);
+    let target = startIndex;
+    if (delta <= -threshold) target = startIndex + 1;
+    else if (delta >= threshold) target = startIndex - 1;
+
+    releasePointer();
+    goTo(target, true);
+  };
+
+  const onPointerCancel = (e) => {
+    if (e.pointerId !== pointerId) return;
+    const from = startIndex;
+    releasePointer();
+    goTo(from, true);
+  };
+
+  viewport.addEventListener("pointerdown", onPointerDown);
+  viewport.addEventListener("pointermove", onPointerMove, { passive: false });
+  viewport.addEventListener("pointerup", onPointerUp);
+  viewport.addEventListener("pointercancel", onPointerCancel);
 
   const onKey = (e) => {
     if (!modal.classList.contains("open")) return;
@@ -489,17 +290,22 @@ function initModalGallery(modal) {
 
   document.addEventListener("keydown", onKey);
 
+  const onResize = () => goTo(index, false);
+  window.addEventListener("resize", onResize);
+
   goTo(0, false);
 
   modal._galleryDestroy = () => {
-    cancelAnimationFrame(scrollRaf);
-    stopGalleryAnimation(viewport);
-    viewport.removeEventListener("scroll", onScroll);
-    unbindTouch();
-    unbindMouseDrag();
+    releasePointer();
+    viewport.removeEventListener("pointerdown", onPointerDown);
+    viewport.removeEventListener("pointermove", onPointerMove);
+    viewport.removeEventListener("pointerup", onPointerUp);
+    viewport.removeEventListener("pointercancel", onPointerCancel);
     dotHandlers.forEach((handler, i) => dots[i]?.removeEventListener("click", handler));
     prevBtn?.removeEventListener("click", onPrev);
     nextBtn?.removeEventListener("click", onNext);
     document.removeEventListener("keydown", onKey);
+    window.removeEventListener("resize", onResize);
+    track.classList.remove("is-animating");
   };
 }
