@@ -66,6 +66,13 @@
     return (I18N[lang] || I18N.it)[key];
   }
 
+  function menuUrl() {
+    const url = new URL(window.location.href);
+    if (ACTIVE_MENU_ID) url.searchParams.set("menu", ACTIVE_MENU_ID);
+    url.hash = "";
+    return `${url.pathname}${url.search}`;
+  }
+
   function makeRoute(partial = {}) {
     return {
       spa: true,
@@ -94,13 +101,20 @@
   }
 
   function pushRoute(route) {
-    if (historyLock || !ACTIVE_MENU_ID) return;
-    history.pushState(withDepth(route), "");
+    if (!ACTIVE_MENU_ID) return;
+    history.pushState(withDepth(route), "", menuUrl());
   }
 
   function replaceRoute(route) {
-    if (historyLock || !ACTIVE_MENU_ID) return;
-    history.replaceState(withDepth(route), "");
+    if (!ACTIVE_MENU_ID) return;
+    history.replaceState(withDepth(route), "", menuUrl());
+  }
+
+  function commitRoute(partial, mode = "push") {
+    const route = withDepth(makeRoute(partial));
+    applyRoute(route);
+    if (mode === "replace") replaceRoute(route);
+    else pushRoute(route);
   }
 
   function findProduct(categoryId, productName) {
@@ -130,21 +144,51 @@
     document.body.style.overflow = blocked ? "hidden" : "";
   }
 
+  function currentSpaState() {
+    return history.state?.spa ? history.state : null;
+  }
+
   function navigateBack() {
     if (!ACTIVE_MENU_ID) return;
-    const depth = history.state?.spa ? (history.state.depth || 0) : 0;
-    if (depth > 0) history.back();
-    else applyRoute(makeRoute({ view: "menu" }));
+    const state = currentSpaState();
+    const depth = state?.depth || 0;
+
+    // Prefer browser history when we actually pushed SPA levels
+    if (depth > 0) {
+      history.back();
+      return;
+    }
+
+    // Fallback if history.state was lost but UI is still nested
+    if (els.productModal.classList.contains("open")) {
+      closeProductModalUI();
+      syncBodyOverflow();
+      if (searchQuery.trim()) renderSearchResults({ skipHistory: true });
+      else if (currentCategory) {
+        renderCategory(currentCategory);
+        showView("category");
+      } else showView("menu");
+      replaceRoute(makeRoute({
+        view: searchQuery.trim() ? "search" : (currentCategory ? "category" : "menu"),
+        categoryId: currentCategory?.id || null,
+        search: searchQuery || ""
+      }));
+      return;
+    }
+
+    if (views.category?.classList.contains("active") || views.search?.classList.contains("active")) {
+      commitRoute({ view: "menu" }, "replace");
+    }
   }
 
   function goHome() {
     if (!ACTIVE_MENU_ID) return;
-    const depth = history.state?.spa ? (history.state.depth || 0) : 0;
-    if (depth > 0) history.go(-depth);
-    else {
-      applyRoute(makeRoute({ view: "menu" }));
-      replaceRoute(makeRoute({ view: "menu" }));
+    const depth = currentSpaState()?.depth || 0;
+    if (depth > 0) {
+      history.go(-depth);
+      return;
     }
+    commitRoute({ view: "menu" }, "replace");
   }
 
   function applyRoute(route) {
@@ -339,11 +383,22 @@
     const menus = getAvailableMenus();
     els.menuPickerGrid.innerHTML = menus.length
       ? menus.map((menu) => `
-          <a class="lang-card" href="?menu=${encodeURIComponent(menu.id)}">
+          <button type="button" class="lang-card" data-menu-id="${menu.id}">
             <span class="lang-label">${menu.name}</span>
-          </a>
+          </button>
         `).join("")
       : `<p class="picker-empty">${lang === "en" ? "No menus available." : "Nessun menu disponibile."}</p>`;
+
+    els.menuPickerGrid.querySelectorAll("[data-menu-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.menuId;
+        const url = new URL(window.location.href);
+        url.searchParams.set("menu", id);
+        url.hash = "";
+        // replace: così Indietro non torna al picker
+        window.location.replace(`${url.pathname}${url.search}`);
+      });
+    });
 
     showView("picker");
   }
@@ -580,9 +635,7 @@
   }
 
   function openCategory(id) {
-    const route = makeRoute({ view: "category", categoryId: id });
-    applyRoute(route);
-    pushRoute(route);
+    commitRoute({ view: "category", categoryId: id }, "push");
   }
 
   function productAllergensHtml(product) {
@@ -786,20 +839,20 @@
 
   function openProductModal(product) {
     const fromSearch = Boolean(searchQuery.trim()) && views.search.classList.contains("active");
-    const route = makeRoute({
+    commitRoute({
       view: "product",
       categoryId: product._categoryId || currentCategory?.id || null,
       productName: product.name.it,
       search: fromSearch ? searchQuery : ""
-    });
-    applyRoute(route);
-    pushRoute(route);
+    }, "push");
   }
 
   function closeProductModal({ fromHistory = false } = {}) {
-    if (!fromHistory && history.state?.view === "product") {
-      history.back();
-      return;
+    if (!fromHistory && (currentSpaState()?.view === "product" || els.productModal.classList.contains("open"))) {
+      if ((currentSpaState()?.depth || 0) > 0) {
+        history.back();
+        return;
+      }
     }
     closeProductModalUI();
     syncBodyOverflow();
@@ -907,8 +960,14 @@
 
   window.addEventListener("popstate", (event) => {
     if (!ACTIVE_MENU_ID) return;
-    const route = event.state?.spa ? event.state : makeRoute({ view: "menu" });
+    if (event.state?.spa) {
+      applyRoute(event.state);
+      return;
+    }
+    // Stato non-SPA (es. voce prima del menu): resta nel menu attivo
+    const route = makeRoute({ view: "menu" });
     applyRoute(route);
+    replaceRoute(route);
   });
 
   applyPreferences();
@@ -923,9 +982,7 @@
     renderLangSwitcher();
     renderAllergenFilter();
     renderCategories();
-    const bootRoute = makeRoute({ view: "menu" });
-    applyRoute(bootRoute);
-    replaceRoute(bootRoute);
+    commitRoute({ view: "menu" }, "replace");
   } else {
     renderMenuPicker();
   }
