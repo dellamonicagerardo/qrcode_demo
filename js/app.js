@@ -7,6 +7,8 @@
   let searchQuery = "";
   let carouselInstance = null;
   let prefs = loadPrefs();
+  let historyLock = false;
+  let legalType = null;
 
   const views = {
     picker: document.getElementById("view-picker"),
@@ -64,6 +66,153 @@
     return (I18N[lang] || I18N.it)[key];
   }
 
+  function makeRoute(partial = {}) {
+    return {
+      spa: true,
+      menu: ACTIVE_MENU_ID || null,
+      view: "menu",
+      categoryId: null,
+      productName: null,
+      search: "",
+      overlay: null,
+      legalType: null,
+      depth: 0,
+      ...partial
+    };
+  }
+
+  function routeDepth(route) {
+    let depth = 0;
+    if (route.view === "category" || route.view === "search") depth = 1;
+    if (route.view === "product") depth = 2;
+    if (route.overlay) depth += 1;
+    return depth;
+  }
+
+  function withDepth(route) {
+    return { ...route, depth: routeDepth(route) };
+  }
+
+  function pushRoute(route) {
+    if (historyLock || !ACTIVE_MENU_ID) return;
+    history.pushState(withDepth(route), "");
+  }
+
+  function replaceRoute(route) {
+    if (historyLock || !ACTIVE_MENU_ID) return;
+    history.replaceState(withDepth(route), "");
+  }
+
+  function findProduct(categoryId, productName) {
+    const cat = CATEGORIES.find((c) => c.id === categoryId);
+    if (!cat) return null;
+    return cat.products.find((p) => p.name.it === productName) || null;
+  }
+
+  function closeProductModalUI() {
+    destroyModalGallery(els.productModal);
+    els.productModal.classList.remove("open");
+  }
+
+  function closeAllergenModalUI() {
+    els.allergenFilterModal?.classList.remove("open");
+  }
+
+  function closeLegalModalUI() {
+    els.legalModal.classList.remove("open");
+    legalType = null;
+  }
+
+  function syncBodyOverflow() {
+    const blocked = els.productModal.classList.contains("open")
+      || els.allergenFilterModal?.classList.contains("open")
+      || els.legalModal.classList.contains("open");
+    document.body.style.overflow = blocked ? "hidden" : "";
+  }
+
+  function navigateBack() {
+    if (!ACTIVE_MENU_ID) return;
+    const depth = history.state?.spa ? (history.state.depth || 0) : 0;
+    if (depth > 0) history.back();
+    else applyRoute(makeRoute({ view: "menu" }));
+  }
+
+  function goHome() {
+    if (!ACTIVE_MENU_ID) return;
+    const depth = history.state?.spa ? (history.state.depth || 0) : 0;
+    if (depth > 0) history.go(-depth);
+    else {
+      applyRoute(makeRoute({ view: "menu" }));
+      replaceRoute(makeRoute({ view: "menu" }));
+    }
+  }
+
+  function applyRoute(route) {
+    const next = makeRoute(route || {});
+    historyLock = true;
+    try {
+      if (next.view !== "product") closeProductModalUI();
+      if (next.overlay !== "allergen") closeAllergenModalUI();
+      if (next.overlay !== "legal") closeLegalModalUI();
+
+      if (next.view === "product") {
+        const product = findProduct(next.categoryId, next.productName);
+        if (!product) {
+          applyRoute(makeRoute({
+            view: next.search ? "search" : (next.categoryId ? "category" : "menu"),
+            categoryId: next.categoryId,
+            search: next.search || ""
+          }));
+          return;
+        }
+        if (next.search) {
+          searchQuery = next.search;
+          els.searchInput.value = next.search;
+          currentCategory = null;
+          renderSearchResults({ skipHistory: true });
+        } else {
+          searchQuery = "";
+          els.searchInput.value = "";
+          currentCategory = CATEGORIES.find((c) => c.id === next.categoryId) || null;
+          if (currentCategory) {
+            renderCategory(currentCategory);
+            showView("category");
+          } else {
+            showView("menu");
+          }
+        }
+        openProductModalUI(product);
+      } else if (next.view === "category") {
+        searchQuery = "";
+        els.searchInput.value = "";
+        currentCategory = CATEGORIES.find((c) => c.id === next.categoryId) || null;
+        if (!currentCategory) {
+          showView("menu");
+        } else {
+          renderCategory(currentCategory);
+          showView("category");
+        }
+      } else if (next.view === "search") {
+        currentCategory = null;
+        searchQuery = next.search || "";
+        els.searchInput.value = searchQuery;
+        renderSearchResults({ skipHistory: true });
+      } else {
+        currentCategory = null;
+        searchQuery = "";
+        els.searchInput.value = "";
+        showView("menu");
+      }
+
+      if (next.overlay === "allergen") openAllergenModalUI();
+      if (next.overlay === "legal") openLegalUI(next.legalType || "terms");
+
+      syncBodyOverflow();
+    } finally {
+      historyLock = false;
+    }
+  }
+
   function scrollToMainContent() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -104,8 +253,7 @@
         <span>${currentCategory.name[lang]}</span>
       `;
       els.breadcrumb.querySelector("[data-go]")?.addEventListener("click", () => {
-        currentCategory = null;
-        showView("menu");
+        navigateBack();
       });
     } else if (viewName === "search") {
       els.breadcrumb.innerHTML = `
@@ -114,9 +262,7 @@
         <span>${t("searchResults")}</span>
       `;
       els.breadcrumb.querySelector("[data-go]")?.addEventListener("click", () => {
-        searchQuery = "";
-        els.searchInput.value = "";
-        showView("menu");
+        navigateBack();
       });
     } else {
       els.breadcrumb.innerHTML = "";
@@ -170,7 +316,7 @@
     renderAllergenFilter();
     updateTexts();
     if (currentCategory) renderCategory(currentCategory);
-    else if (views.search.classList.contains("active")) renderSearchResults();
+    else if (views.search.classList.contains("active")) renderSearchResults({ skipHistory: true });
     else renderCategories();
     showView(currentCategory ? "category" : (searchQuery.trim() ? "search" : "menu"));
   }
@@ -310,7 +456,7 @@
         renderAllergenFilter();
         renderActiveAllergenBar(currentView);
         if (currentCategory) renderCategory(currentCategory);
-        else if (searchQuery.trim()) renderSearchResults();
+        else if (searchQuery.trim()) renderSearchResults({ skipHistory: true });
       });
     });
   }
@@ -337,19 +483,31 @@
     });
   }
 
-  function openAllergenModal() {
+  function openAllergenModalUI() {
     pendingExcludedAllergens = [...excludedAllergens];
     renderAllergenGrid();
     renderAllergenFilter();
     els.allergenFilterModal.classList.add("open");
-    document.body.style.overflow = "hidden";
   }
 
-  function closeAllergenModal() {
-    els.allergenFilterModal.classList.remove("open");
-    if (!els.productModal.classList.contains("open") && !els.legalModal.classList.contains("open")) {
-      document.body.style.overflow = "";
+  function openAllergenModal() {
+    openAllergenModalUI();
+    syncBodyOverflow();
+    const base = history.state?.spa ? history.state : makeRoute({ view: "menu" });
+    pushRoute(makeRoute({
+      ...base,
+      overlay: "allergen",
+      legalType: null
+    }));
+  }
+
+  function closeAllergenModal({ fromHistory = false } = {}) {
+    if (!fromHistory && history.state?.overlay === "allergen") {
+      history.back();
+      return;
     }
+    closeAllergenModalUI();
+    syncBodyOverflow();
   }
 
   function applyAllergenFilter() {
@@ -360,7 +518,7 @@
     renderActiveAllergenBar();
     closeAllergenModal();
     if (currentCategory) renderCategory(currentCategory);
-    else if (searchQuery.trim()) renderSearchResults();
+    else if (searchQuery.trim()) renderSearchResults({ skipHistory: true });
   }
 
   function resetAllergenFilter() {
@@ -422,11 +580,9 @@
   }
 
   function openCategory(id) {
-    currentCategory = CATEGORIES.find((c) => c.id === id);
-    searchQuery = "";
-    els.searchInput.value = "";
-    renderCategory(currentCategory);
-    showView("category");
+    const route = makeRoute({ view: "category", categoryId: id });
+    applyRoute(route);
+    pushRoute(route);
   }
 
   function productAllergensHtml(product) {
@@ -517,11 +673,16 @@
     });
   }
 
-  function renderSearchResults() {
+  function renderSearchResults({ skipHistory = false } = {}) {
     const q = searchQuery.trim().toLowerCase();
     els.searchResults.innerHTML = "";
     if (!q) {
-      showView("menu");
+      if (!skipHistory) {
+        applyRoute(makeRoute({ view: "menu" }));
+        replaceRoute(makeRoute({ view: "menu" }));
+      } else {
+        showView("menu");
+      }
       return;
     }
     const results = getAllProducts().filter(({ product, category }) => {
@@ -531,15 +692,20 @@
     });
     if (!results.length) {
       els.searchResults.innerHTML = `<p class="empty-state">${t("noResults")}</p>`;
-      return;
+    } else {
+      results.forEach(({ product, category }, i) => {
+        els.searchResults.appendChild(renderProductCard(product, i, category.name[lang]));
+      });
     }
-    results.forEach(({ product, category }, i) => {
-      els.searchResults.appendChild(renderProductCard(product, i, category.name[lang]));
-    });
     showView("search");
+    if (!skipHistory) {
+      const route = makeRoute({ view: "search", search: searchQuery });
+      if (history.state?.spa && history.state.view === "search") replaceRoute(route);
+      else pushRoute(route);
+    }
   }
 
-  function openProductModal(product) {
+  function openProductModalUI(product) {
     const desc = product.desc[lang];
     const ingredients = product.ingredients?.[lang] || [];
     const allergenIds = product.allergenIds || [];
@@ -615,64 +781,80 @@
     if (scrollArea) scrollArea.scrollTop = 0;
 
     els.productModal.classList.add("open");
-    document.body.style.overflow = "hidden";
-
     initModalGallery(els.productModal);
   }
 
-  function closeProductModal() {
-    destroyModalGallery(els.productModal);
-    els.productModal.classList.remove("open");
-    document.body.style.overflow = "";
+  function openProductModal(product) {
+    const fromSearch = Boolean(searchQuery.trim()) && views.search.classList.contains("active");
+    const route = makeRoute({
+      view: "product",
+      categoryId: product._categoryId || currentCategory?.id || null,
+      productName: product.name.it,
+      search: fromSearch ? searchQuery : ""
+    });
+    applyRoute(route);
+    pushRoute(route);
   }
 
-  function openLegal(type) {
+  function closeProductModal({ fromHistory = false } = {}) {
+    if (!fromHistory && history.state?.view === "product") {
+      history.back();
+      return;
+    }
+    closeProductModalUI();
+    syncBodyOverflow();
+  }
+
+  function openLegalUI(type) {
     const content = {
       terms: {
         it: { title: "Termini e Condizioni", body: "Questo menu digitale è fornito a scopo informativo. I prezzi e la disponibilità dei prodotti possono variare. Per allergie o intolleranze, consultare sempre il personale di sala prima dell'ordine." },
-        en: { title: "Terms and Conditions", body: "This digital menu is provided for informational purposes. Prices and product availability may vary. For allergies or intolerances, always consult staff before ordering." }
+        en: { title: "Terms and Conditions", body: "This digital menu is provided for informational purposes. Prices and product availability may vary. For allergies and intolerances, always consult staff before ordering." }
       },
       privacy: {
         it: { title: "Informativa Privacy", body: "Questo sito statico non raccoglie dati personali. Non vengono utilizzati cookie di tracciamento né strumenti di analisi." },
         en: { title: "Privacy Policy", body: "This static site does not collect personal data. No tracking cookies or analytics tools are used." }
       }
     };
+    legalType = type;
     const data = content[type][lang || "it"];
     els.legalTitle.textContent = data.title;
     els.legalBody.textContent = data.body;
     els.legalModal.classList.add("open");
-    document.body.style.overflow = "hidden";
   }
 
-  function closeLegalModal() {
-    els.legalModal.classList.remove("open");
-    document.body.style.overflow = "";
+  function openLegal(type) {
+    openLegalUI(type);
+    syncBodyOverflow();
+    const base = history.state?.spa ? history.state : makeRoute({ view: "menu" });
+    pushRoute(makeRoute({
+      ...base,
+      overlay: "legal",
+      legalType: type
+    }));
   }
 
-  function goHome() {
-    currentCategory = null;
-    searchQuery = "";
-    els.searchInput.value = "";
-    showView("menu");
+  function closeLegalModal({ fromHistory = false } = {}) {
+    if (!fromHistory && history.state?.overlay === "legal") {
+      history.back();
+      return;
+    }
+    closeLegalModalUI();
+    syncBodyOverflow();
   }
 
   document.querySelectorAll(".lang-card").forEach((btn) => {
     btn.addEventListener("click", () => setLang(btn.dataset.lang));
   });
 
-  els.backBtn.addEventListener("click", () => {
-    currentCategory = null;
-    searchQuery = "";
-    els.searchInput.value = "";
-    showView("menu");
-  });
+  els.backBtn.addEventListener("click", () => navigateBack());
 
-  document.getElementById("modal-close").addEventListener("click", closeProductModal);
+  document.getElementById("modal-close").addEventListener("click", () => closeProductModal());
   els.productModal.addEventListener("click", (e) => {
     if (e.target === els.productModal) closeProductModal();
   });
 
-  document.getElementById("legal-close").addEventListener("click", closeLegalModal);
+  document.getElementById("legal-close").addEventListener("click", () => closeLegalModal());
   els.legalModal.addEventListener("click", (e) => {
     if (e.target === els.legalModal) closeLegalModal();
   });
@@ -683,7 +865,7 @@
   els.homeFab.addEventListener("click", goHome);
 
   els.allergenFilterBtn?.addEventListener("click", openAllergenModal);
-  document.getElementById("allergen-modal-close")?.addEventListener("click", closeAllergenModal);
+  document.getElementById("allergen-modal-close")?.addEventListener("click", () => closeAllergenModal());
   els.allergenFilterModal?.addEventListener("click", (e) => {
     if (e.target === els.allergenFilterModal) closeAllergenModal();
   });
@@ -718,9 +900,15 @@
         currentCategory = null;
         renderSearchResults();
       } else if (views.search.classList.contains("active")) {
-        showView("menu");
+        navigateBack();
       }
     }, 250);
+  });
+
+  window.addEventListener("popstate", (event) => {
+    if (!ACTIVE_MENU_ID) return;
+    const route = event.state?.spa ? event.state : makeRoute({ view: "menu" });
+    applyRoute(route);
   });
 
   applyPreferences();
@@ -735,7 +923,9 @@
     renderLangSwitcher();
     renderAllergenFilter();
     renderCategories();
-    showView("menu");
+    const bootRoute = makeRoute({ view: "menu" });
+    applyRoute(bootRoute);
+    replaceRoute(bootRoute);
   } else {
     renderMenuPicker();
   }
