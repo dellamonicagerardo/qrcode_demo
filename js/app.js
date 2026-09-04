@@ -376,7 +376,7 @@
 
   function categoryCardHtml(cat) {
     return `
-      <img src="${cat.image}" alt="${cat.name[lang]}" loading="lazy">
+      ${cat.image ? `<img src="${cat.image}" alt="${cat.name[lang]}" loading="lazy">` : ""}
       <div class="card-top-badge">
         <span>${t("details")}</span>
         <svg width="11" height="11" viewBox="0 0 320 512" fill="currentColor"><path d="M285.476 272.971L91.132 467.314c-9.373 9.373-24.569 9.373-33.941 0l-22.667-22.667c-9.357-9.357-9.375-24.522-.04-33.901L188.505 256 34.484 101.255c-9.335-9.379-9.317-24.544.04-33.901l22.667-22.667c9.373-9.373 24.569-9.373 33.941 0L285.475 239.03c9.373 9.372 9.373 24.568.001 33.941z"/></svg>
@@ -395,18 +395,21 @@
     els.categoryGrid.innerHTML = "";
 
     CATEGORIES.forEach((cat) => {
-      const slide = document.createElement("button");
-      slide.type = "button";
-      slide.className = "carousel-slide category-carousel-card";
-      slide.innerHTML = categoryCardHtml(cat);
-      bindCategoryCard(slide, cat);
-      track.appendChild(slide);
+      if (MENU_HAS_PHOTOS) {
+        const slide = document.createElement("button");
+        slide.type = "button";
+        slide.className = "carousel-slide category-carousel-card";
+        slide.dataset.imgHolder = "";
+        slide.innerHTML = categoryCardHtml(cat);
+        bindCategoryCard(slide, cat);
+        track.appendChild(slide);
+      }
 
       const listBtn = document.createElement("button");
       listBtn.type = "button";
       listBtn.className = "category-list-item";
       listBtn.innerHTML = `
-        <img src="${cat.image}" alt="" loading="lazy">
+        ${cat.image ? `<img src="${cat.image}" alt="" loading="lazy">` : ""}
         <span class="category-list-name">${cat.name[lang]}</span>
         <svg class="category-list-arrow" width="16" height="16" viewBox="0 0 320 512" fill="currentColor"><path d="M285.476 272.971L91.132 467.314c-9.373 9.373-24.569 9.373-33.941 0l-22.667-22.667c-9.357-9.357-9.375-24.522-.04-33.901L188.505 256 34.484 101.255c-9.335-9.379-9.317-24.544.04-33.901l22.667-22.667c9.373-9.373 24.569-9.373 33.941 0L285.475 239.03c9.373 9.372 9.373 24.568.001 33.941z"/></svg>
       `;
@@ -415,7 +418,7 @@
     });
 
     if (carouselInstance) carouselInstance.destroy();
-    carouselInstance = initCarousel(els.categoryCarousel);
+    carouselInstance = MENU_HAS_PHOTOS ? initCarousel(els.categoryCarousel) : null;
   }
 
   function openCategory(id) {
@@ -468,8 +471,9 @@
   }
 
   function productThumbHtml(product) {
+    if (!product.image) return "";
     return `
-      <div class="product-thumb">
+      <div class="product-thumb" data-img-holder>
         <img src="${product.image}" alt="${product.name[lang]}" loading="lazy">
         <div class="product-thumb-cta">
           <span>${t("details")}</span>
@@ -540,18 +544,23 @@
     const ingredients = product.ingredients?.[lang] || [];
     const allergenIds = product.allergenIds || [];
     const pregnancyWarnings = product.pregnancyWarnings || [];
-    const images = product.images || [product.image];
+    const images = (product.images || [product.image]).filter(Boolean);
     const gallery = document.getElementById("modal-gallery");
+    const galleryWrap = els.productModal.querySelector(".gallery-wrap");
     const dotsWrap = document.getElementById("modal-gallery-dots");
     const ingredientsEl = document.getElementById("modal-ingredients");
     const pregnancyEl = document.getElementById("modal-pregnancy");
     const allergensEl = document.getElementById("modal-allergens");
 
-    gallery.innerHTML = `<div class="gallery-track">${images.map((src) => `
-      <div class="gallery-slide">
-        <img src="${src}" alt="${product.name[lang]}" draggable="false">
-      </div>
-    `).join("")}</div>`;
+    galleryWrap?.classList.toggle("hidden", images.length === 0);
+
+    gallery.innerHTML = images.length
+      ? `<div class="gallery-track">${images.map((src) => `
+          <div class="gallery-slide" data-img-holder>
+            <img src="${src}" alt="${product.name[lang]}" draggable="false">
+          </div>
+        `).join("")}</div>`
+      : "";
 
     dotsWrap.innerHTML = images.length > 1
       ? images.map((_, i) => `<button type="button" class="gallery-dot${i === 0 ? " active" : ""}" aria-label="${t("photo")} ${i + 1}"></button>`).join("")

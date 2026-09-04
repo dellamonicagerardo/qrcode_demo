@@ -12,6 +12,7 @@ const DEFAULT_PIZZA_IMAGES = [
 let SITE = {};
 let CATEGORIES = [];
 let ACTIVE_MENU_ID = "";
+let MENU_HAS_PHOTOS = true;
 const MENU_REGISTRY = {};
 
 function registerMenu(menu) {
@@ -88,24 +89,34 @@ function inferAllergenIds(product, catId) {
 }
 
 function enrichProducts(menu) {
+  const withPhotos = menu.config?.photos !== false;
   const pizzaIds = new Set(menu.config?.pizzaCategoryIds || ["pizze", "pizze-dautore"]);
   const pizzaImages = menu.config?.pizzaImages || DEFAULT_PIZZA_IMAGES;
   let pizzaIdx = 0;
 
   menu.categories.forEach((cat) => {
     const isPizza = pizzaIds.has(cat.id);
+    // image: null significa "questa voce non prevede foto", diverso da image assente
+    // che invece riceve un'immagine di riserva.
+    const catWithoutPhoto = !withPhotos || cat.image === null;
+    if (!withPhotos) cat.image = null;
+
     cat.products.forEach((product) => {
-      if (Array.isArray(product.images) && product.images.length) {
-        if (!product.image) product.image = product.images[0];
+      const ownImages = (Array.isArray(product.images) ? product.images : []).filter(Boolean);
+      const productWithoutPhoto = product.image === null || product.images === null;
+
+      if (!withPhotos || productWithoutPhoto || (catWithoutPhoto && !ownImages.length)) {
+        product.image = null;
+        product.images = [];
+      } else {
+        if (ownImages.length && !product.image) product.image = ownImages[0];
+        if (!product.image) {
+          product.image = isPizza || !cat.image
+            ? pizzaImages[pizzaIdx++ % pizzaImages.length]
+            : portrait(cat.image);
+        }
+        product.images = ownImages.length ? ownImages : [product.image];
       }
-      if (!product.image) {
-        product.image = isPizza
-          ? pizzaImages[pizzaIdx++ % pizzaImages.length]
-          : portrait(cat.image);
-      }
-      product.images = Array.isArray(product.images) && product.images.length
-        ? product.images
-        : [product.image];
       product.ingredients = product.ingredients || {
         it: parseIngredients(product.desc.it),
         en: parseIngredients(product.desc.en)
@@ -128,6 +139,46 @@ function getAllProducts() {
   return items;
 }
 
+function applyOptionalImage(img, src, alt) {
+  if (!img) return;
+  if (src) {
+    img.src = src;
+    img.alt = alt || "";
+    img.hidden = false;
+  } else {
+    img.removeAttribute("src");
+    img.alt = "";
+    img.hidden = true;
+  }
+}
+
+// Un'immagine che non si carica non deve mai mostrare l'icona di file rotto:
+// la nascondiamo e lasciamo che il contenitore mostri il proprio segnaposto.
+function handleImageError(img) {
+  img.hidden = true;
+  img.removeAttribute("src");
+
+  const cover = img.closest(".cover");
+  if (cover) {
+    cover.classList.add("hidden");
+    document.documentElement.classList.add("no-cover");
+    return;
+  }
+
+  const logoBox = img.closest(".logo-wrap, .footer-logo");
+  if (logoBox) {
+    logoBox.querySelector(".logo-text, .footer-logo-text")?.classList.remove("hidden");
+    return;
+  }
+
+  img.closest("[data-img-holder]")?.classList.add("img-failed");
+}
+
+// L'evento error non fa bubbling: va intercettato in fase di capture.
+document.addEventListener("error", (e) => {
+  if (e.target?.tagName === "IMG") handleImageError(e.target);
+}, true);
+
 function applySiteToPage(site) {
   if (!site) return;
 
@@ -135,34 +186,48 @@ function applySiteToPage(site) {
   const meta = document.querySelector('meta[name="description"]');
   if (meta) meta.content = site.metaDescription || `Menu digitale - ${site.name}`;
 
-  const coverImg = document.querySelector(".cover img");
-  if (coverImg && site.cover) {
-    coverImg.src = site.cover;
-    coverImg.alt = site.coverAlt || `Cover ${site.name}`;
+  applyOptionalImage(document.querySelector(".cover img"), site.cover, site.coverAlt || `Cover ${site.name}`);
+  document.querySelector(".cover")?.classList.toggle("hidden", !site.cover);
+  document.documentElement.classList.toggle("no-cover", !site.cover);
+
+  applyOptionalImage(document.querySelector(".logo-wrap img"), site.logo, site.logoAlt || `Logo ${site.name}`);
+  applyOptionalImage(document.querySelector(".footer-logo img"), site.logo, site.logoAlt || `Logo ${site.name}`);
+
+  const initials = (site.name || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 3)
+    .toUpperCase();
+
+  const logoText = document.querySelector(".logo-text");
+  if (logoText) {
+    logoText.textContent = initials;
+    logoText.classList.toggle("hidden", Boolean(site.logo));
   }
 
-  const logoImg = document.querySelector(".logo-wrap img");
-  if (logoImg && site.logo) {
-    logoImg.src = site.logo;
-    logoImg.alt = site.logoAlt || `Logo ${site.name}`;
+  const footerLogoText = document.querySelector(".footer-logo-text");
+  if (footerLogoText) {
+    footerLogoText.textContent = initials;
+    footerLogoText.classList.toggle("hidden", Boolean(site.logo));
   }
 
   const logoLink = document.getElementById("logo-link");
   if (logoLink) logoLink.setAttribute("aria-label", site.name);
 
-  const footerLogo = document.querySelector(".footer-logo img");
-  if (footerLogo && site.logo) {
-    footerLogo.src = site.logo;
-    footerLogo.alt = site.logoAlt || `Logo ${site.name}`;
-  }
-
   const phoneBtn = document.querySelector(".phone-btn");
-  if (phoneBtn && site.phone) {
-    phoneBtn.href = `tel:${site.phone.replace(/\s/g, "")}`;
+  if (phoneBtn) {
+    if (site.phone) phoneBtn.href = `tel:${site.phone.replace(/\s/g, "")}`;
+    phoneBtn.classList.toggle("hidden", !site.phone);
   }
 
-  const addressRow = document.querySelector(".footer-row span");
-  if (addressRow && site.address) addressRow.textContent = site.address;
+  const addressRow = document.querySelector(".footer-row");
+  if (addressRow) {
+    const addressText = addressRow.querySelector("span");
+    if (addressText) addressText.textContent = site.address || "";
+    addressRow.classList.toggle("hidden", !site.address);
+  }
 
   const socialMap = {
     whatsapp: site.whatsapp,
@@ -197,6 +262,8 @@ function initMenu(menu) {
   ACTIVE_MENU_ID = menu.id;
   SITE = menu.site;
   CATEGORIES = menu.categories;
+  MENU_HAS_PHOTOS = menu.config?.photos !== false;
+  document.documentElement.classList.toggle("no-photos", !MENU_HAS_PHOTOS);
   enrichProducts(menu);
   applySiteToPage(menu.site);
 }

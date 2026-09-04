@@ -56,6 +56,10 @@ img {
   max-width: 100%;
 }
 
+img[hidden] {
+  display: none;
+}
+
 .container {
   max-width: var(--max-width);
   margin: 0 auto;
@@ -903,11 +907,13 @@ html.text-large .lang-label {
   gap: 10px;
 }
 
-html.categories-list .carousel-wrap {
+html.categories-list .carousel-wrap,
+html.no-photos .carousel-wrap {
   display: none;
 }
 
-html.categories-list .category-grid {
+html.categories-list .category-grid,
+html.no-photos .category-grid {
   display: flex;
 }
 
@@ -1728,4 +1734,91 @@ html.text-large .carousel-viewport {
   font-size: 0.8rem;
   color: var(--muted);
   line-height: 1.6;
+}
+
+/* Wordmark testuale quando il locale non ha un logo */
+.logo-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+
+.footer-logo-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.logo-text.hidden,
+.footer-logo-text.hidden,
+.cover.hidden,
+.gallery-wrap.hidden,
+.phone-btn.hidden,
+.footer-row.hidden {
+  display: none;
+}
+
+/* Segnaposto per immagini che non si caricano */
+.product-thumb.img-failed {
+  display: none;
+}
+
+.category-carousel-card.img-failed,
+.gallery-slide.img-failed {
+  background: linear-gradient(160deg, rgba(173, 138, 54, 0.3) 0%, var(--card-bg) 70%);
+}
+
+.gallery-slide.img-failed {
+  position: relative;
+}
+
+.gallery-slide.img-failed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0.35;
+}
+
+/* Header compatto senza immagine di copertina */
+html.no-cover .site-header {
+  height: auto;
+  min-height: 0;
+  padding-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+html.no-cover .logo-wrap {
+  position: static;
+  transform: none;
+}
+
+/* Menu in versione semplice, senza foto dei prodotti */
+html.no-photos #btn-category-view,
+html.no-photos .footer-disclaimer {
+  display: none;
+}
+
+html.no-photos .product-card-inner {
+  min-height: 0;
+}
+
+html.no-photos:not(.text-large) .product-body {
+  padding: 14px 16px;
 }
