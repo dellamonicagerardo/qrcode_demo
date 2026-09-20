@@ -5,7 +5,7 @@
  * L'elenco dei file è in js/menus/manifest.js (generato automaticamente).
  * Dopo un nuovo menu: node scripts/generate-menu-manifest.js
  *
- * Selezione obbligatoria: ?menu=white-gold | ?menu=forno-napoli
+ * Selezione obbligatoria: ?menu=forno-aurora | ?menu=forno-napoli | ?menu=trattoria-essenziale
  */
 let MENU_REQUESTED_ID = null;
 

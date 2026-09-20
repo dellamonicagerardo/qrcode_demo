@@ -927,8 +927,8 @@
   function openLegalUI(type) {
     const content = {
       terms: {
-        it: { title: "Termini e Condizioni", body: "Questo menu digitale è fornito a scopo informativo. I prezzi e la disponibilità dei prodotti possono variare. Per allergie o intolleranze, consultare sempre il personale di sala prima dell'ordine." },
-        en: { title: "Terms and Conditions", body: "This digital menu is provided for informational purposes. Prices and product availability may vary. For allergies and intolerances, always consult staff before ordering." }
+        it: { title: "Termini e Condizioni", body: "Questo sito è una dimostrazione di menu digitale. Prezzi, disponibilità e informazioni sono solo di esempio. In un locale reale, per allergie o intolleranze rivolgersi sempre al personale prima di ordinare." },
+        en: { title: "Terms and Conditions", body: "This site is a digital menu demo. Prices, availability and information are sample data only. In a real venue, always ask staff about allergies or intolerances before ordering." }
       },
       privacy: {
         it: { title: "Informativa Privacy", body: "Questo sito statico non raccoglie dati personali. Non vengono utilizzati cookie di tracciamento né strumenti di analisi." },
