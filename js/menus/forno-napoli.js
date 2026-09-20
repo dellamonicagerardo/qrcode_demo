@@ -21,8 +21,8 @@ const MENU_FORNO_NAPOLI = {
       bgLight: "#faf6f2",
       cardBg: "#2a1a16",
       cardBgLight: "#ffffff",
-      font: "DM Sans",
-      fontUrl: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap"
+      font: "Literata",
+      fontUrl: "https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&display=swap"
     }
   },
   config: {

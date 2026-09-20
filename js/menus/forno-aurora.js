@@ -22,8 +22,8 @@ const MENU_FORNO_AURORA = {
       bgLight: "#f8f4ee",
       cardBg: "#241f18",
       cardBgLight: "#ffffff",
-      font: "Outfit",
-      fontUrl: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap"
+      font: "Bricolage Grotesque",
+      fontUrl: "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&display=swap"
     }
   },
   config: {

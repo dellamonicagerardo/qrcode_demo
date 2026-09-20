@@ -10,7 +10,7 @@
   --font-title: 1.5rem;
   --font-product: 1rem;
   --touch-min: 44px;
-  --font-family: var(--menu-font, "Montserrat", Arial, system-ui, sans-serif);
+  --font-family: var(--menu-font, "Bricolage Grotesque", system-ui, sans-serif);
 }
 
 html.theme-light {

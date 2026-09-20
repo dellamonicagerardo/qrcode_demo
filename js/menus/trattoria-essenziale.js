@@ -23,8 +23,8 @@ const MENU_TRATTORIA_ESSENZIALE = {
       bgLight: "#eef2ef",
       cardBg: "#1e2622",
       cardBgLight: "#ffffff",
-      font: "Source Serif 4",
-      fontUrl: "https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&display=swap"
+      font: "Fraunces",
+      fontUrl: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap"
     }
   },
   config: {
